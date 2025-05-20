@@ -1,3 +1,4 @@
+```
 src/
 └── 
     ├── project/
@@ -30,3 +31,5 @@ src/
         ├── messages.properties                        # 다국어 메시지 파일
         └── templates/                                # HTML 템플릿 (필요시)
             └── call_summary.html                     # 통화 요약 템플릿
+
+```
