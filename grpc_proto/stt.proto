@@ -1,0 +1,14 @@
+// grpc_proto/stt.proto
+syntax = "proto3";
+
+service STT {
+  rpc Transcribe (AudioInput) returns (TranscriptOutput);
+}
+
+message AudioInput {
+  bytes audio = 1;
+}
+
+message TranscriptOutput {
+  string transcript = 1;
+}
