@@ -35,7 +35,7 @@ class STTStub(object):
             channel: A grpc.Channel.
         """
         self.Transcribe = channel.unary_unary(
-                '/STT/Transcribe',
+                '/grpc_proto.STT/Transcribe',
                 request_serializer=stt__pb2.AudioInput.SerializeToString,
                 response_deserializer=stt__pb2.TranscriptOutput.FromString,
                 _registered_method=True)
@@ -60,9 +60,9 @@ def add_STTServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'STT', rpc_method_handlers)
+            'grpc_proto.STT', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('STT', rpc_method_handlers)
+    server.add_registered_method_handlers('grpc_proto.STT', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -83,7 +83,7 @@ class STT(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/STT/Transcribe',
+            '/grpc_proto.STT/Transcribe',
             stt__pb2.AudioInput.SerializeToString,
             stt__pb2.TranscriptOutput.FromString,
             options,

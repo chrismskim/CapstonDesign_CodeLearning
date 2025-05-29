@@ -24,17 +24,17 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\tstt.proto\"\x1b\n\nAudioInput\x12\r\n\x05\x61udio\x18\x01 \x01(\x0c\"&\n\x10TranscriptOutput\x12\x12\n\ntranscript\x18\x01 \x01(\t23\n\x03STT\x12,\n\nTranscribe\x12\x0b.AudioInput\x1a\x11.TranscriptOutputb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\tstt.proto\x12\ngrpc_proto\"\x1b\n\nAudioInput\x12\r\n\x05\x61udio\x18\x01 \x01(\x0c\"&\n\x10TranscriptOutput\x12\x12\n\ntranscript\x18\x01 \x01(\t2I\n\x03STT\x12\x42\n\nTranscribe\x12\x16.grpc_proto.AudioInput\x1a\x1c.grpc_proto.TranscriptOutputb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'stt_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_AUDIOINPUT']._serialized_start=13
-  _globals['_AUDIOINPUT']._serialized_end=40
-  _globals['_TRANSCRIPTOUTPUT']._serialized_start=42
-  _globals['_TRANSCRIPTOUTPUT']._serialized_end=80
-  _globals['_STT']._serialized_start=82
-  _globals['_STT']._serialized_end=133
+  _globals['_AUDIOINPUT']._serialized_start=25
+  _globals['_AUDIOINPUT']._serialized_end=52
+  _globals['_TRANSCRIPTOUTPUT']._serialized_start=54
+  _globals['_TRANSCRIPTOUTPUT']._serialized_end=92
+  _globals['_STT']._serialized_start=94
+  _globals['_STT']._serialized_end=167
 # @@protoc_insertion_point(module_scope)
