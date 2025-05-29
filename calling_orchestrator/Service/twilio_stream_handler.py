@@ -1,55 +1,70 @@
-# services/twilio_stream_handler.py
-# Twilio WebSocket 연결 수신 핸들러
-
 import asyncio
 import websockets
-import base64
 import json
-from .stt_service import STTService
-from .tts_service import TTSService
+import base64
 
-stt_service = STTService()
-tts_service = TTSService()
+from calling_orchestrator.Service.stt_service import STTService
+from calling_orchestrator.Service.tts_service import TTSService
+from calling_orchestrator.Service.llm_orchestrator import answer_question
 
+stt = STTService()
+tts = TTSService()
 
-async def handle_connection(websocket, path):
-    print("[Twilio] WebSocket 연결됨")
-
-    async for message in websocket:
-        data = json.loads(message)
-
-        # Twilio에서 전송한 사용자 오디오 수신
-        if data.get("event") == "media":
-            audio_base64 = data["media"]["payload"]
-            audio_bytes = base64.b64decode(audio_base64)
-
-            # STT 처리
-            transcript = stt_service.transcribe(audio_bytes)
-            print(f"[STT] 결과: {transcript}")
-
-            # TTS 변환
-            audio_response = tts_service.speak(transcript, call_sid="dummy")  # 실제 call_sid 필요 없음
-
-            # Twilio에 음성 전송 (base64 인코딩)
-            response_payload = base64.b64encode(audio_response).decode("utf-8")
-            response_msg = {
-                "event": "media",
-                "media": {
-                    "payload": response_payload
-                }
-            }
-            await websocket.send(json.dumps(response_msg))
-
-        elif data.get("event") == "start":
-            print(f"[Twilio] 통화 시작 이벤트 수신: {data}")
-        elif data.get("event") == "stop":
-            print("[Twilio] 통화 종료")
-            break
+# 오디오 버퍼 처리기
+audio_buffer = {}
 
 
-# WebSocket 서버 실행
-if __name__ == "__main__":
-    start_server = websockets.serve(handle_connection, "0.0.0.0", 8765)
-    print("[Twilio] WebSocket 서버 시작됨 (port 8765)")
-    asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_forever()
+async def handle_connection(websocket):
+    print("[WebSocket] 연결됨")
+
+    try:
+        async for message in websocket:
+            data = json.loads(message)
+            event = data.get("event")
+
+            if event == "start":
+                call_sid = data["start"]["callSid"]
+                print(f"[WebSocket] 통화 시작: {call_sid}")
+                audio_buffer[call_sid] = bytearray()
+
+            elif event == "media":
+                call_sid = data["media"]["track"]
+                payload = base64.b64decode(data["media"]["payload"])
+                audio_buffer[call_sid] += payload
+
+            elif event == "stop":
+                call_sid = data["stop"]["callSid"]
+                print(f"[WebSocket] 통화 종료: {call_sid}")
+
+                audio = bytes(audio_buffer.get(call_sid, b""))
+                if not audio:
+                    print("[오류] 오디오 없음")
+                    return
+
+                transcript = stt.transcribe(audio)
+                print(f"[STT] 인식 결과: {transcript}")
+
+                answer = answer_question(transcript)
+                print(f"[LLM 응답] {answer}")
+
+                audio_reply = tts.speak(answer)
+
+                await websocket.send(json.dumps({
+                    "event": "media",
+                    "media": {
+                        "payload": base64.b64encode(audio_reply).decode('utf-8')
+                    }
+                }))
+
+    except websockets.exceptions.ConnectionClosed:
+        print("[WebSocket] 연결 종료")
+
+
+async def main():
+    print("[WebSocket 서버] 시작 중 (0.0.0.0:8765)...")
+    async with websockets.serve(handle_connection, "0.0.0.0", 8765):
+        await asyncio.Future()  # run forever
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

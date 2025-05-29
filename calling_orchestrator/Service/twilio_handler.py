@@ -1,14 +1,40 @@
-#통화 연결
-from twilio.rest import Client
+# ✅ calling_orchestrator/Service/twilio_handler.py
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
+from fastapi.middleware.cors import CORSMiddleware
+from xml.etree.ElementTree import Element, tostring
+import uvicorn
+import os
+from dotenv import load_dotenv
 
-def Twilio(Number):
-    # Twilio 계정 SID와 인증 토큰 설정
-    account_sid = '계정 SID 값'  # 실제 값으로 변경
-    auth_token = 'token'    # 실제 값으로 변경
-    client = Client(account_sid, auth_token)
-    # 전화 걸기
-    call = client.calls.create(
-    to='+82~~~',  # 수신자 전화번호 (국가번호 포함)
-    from_='+1~',      # 구매한 Twilio 전화번호
-    url='http://demo.twilio.com/docs/voice.xml')  # 통화 시 실행될 TwiML URL
-    print(call.sid)  # 통화 ID 출력
+load_dotenv()
+
+WS_URL = os.getenv("TWILIO_WS_URL", "wss://localhost:8765")
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.post("/twilio-webhook")
+async def twilio_webhook(request: Request):
+    print("[Twilio Webhook] 전화 연결 요청 수신")
+
+    # WebSocket으로 전환하는 TwiML XML 생성
+    response = Element("Response")
+    start = Element("Start")
+    stream = Element("Stream")
+    stream.set("url", WS_URL)
+    start.append(stream)
+    response.append(start)
+
+    return Response(content=tostring(response), media_type="application/xml")
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
