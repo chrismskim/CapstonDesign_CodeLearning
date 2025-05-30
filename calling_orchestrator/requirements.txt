@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+websockets
+python-dotenv
+requests
+twilio
+grpcio
+grpcio-tools
+openai-whisper
+torch
+gTTS
+transformers
