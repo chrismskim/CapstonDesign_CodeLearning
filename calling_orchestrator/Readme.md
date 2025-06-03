@@ -108,4 +108,3 @@ calling_orchestrator/
 ## 문의 및 참고
 
 - Twilio, FastAPI, gRPC, OpenAI, Redis 공식 문서 참고
-- 추가 기능/구조 문의는 개발자에게 연락
