@@ -1,113 +1,111 @@
-# 📞 AI Voice Call Orchestrator (Capstone Design Project)
+# calling_orchestrator
 
-> Twilio + WebSocket + STT + LLM + TTS + Summary + Result API
-
----
-
-## 🧠 프로젝트 설명
-
-이 프로젝트는 전화 기반으로 실시간 상담을 진행하고, 
-사용자의 음성을 텍스트로 전환(STT), LLM을 통해 응답 생성, 
-응답을 음성으로 변환(TTS)하여 다시 사용자에게 들려주는 **AI 음성 상담 시스템**입니다.
+AI 음성 상담 자동화 시스템의 콜링 및 대화 관리 서버
 
 ---
 
-## 📂 주요 구성도
+## 📁 디렉토리 구조
 
-```mermaid
-graph LR
-CallingService -->|전화 요청| TwilioCallTrigger
-TwilioCallTrigger -->|WebSocket| Twilio
-Twilio -->|사용자 음성| WebSocketServer(twilio_stream_handler)
-WebSocketServer --> STT
-WebSocketServer --> LLM
-WebSocketServer --> TTS
-WebSocketServer --> CallingAPI
+```
+calling_orchestrator/
+├── readme.md
+├── requierment.txt
+├── app/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── main.py
+│   ├── models.py
+│   ├── routes.py
+│   ├── protos/
+│   │   ├── __init__.py
+│   │   ├── stt_pb2.py
+│   │   ├── stt_pb2_grpc.py
+│   │   ├── tts_pb2.py
+│   │   ├── tts_pb2_grpc.py
+│   └── services/
+│       ├── __init__.py
+│       ├── llm_service.py
+│       ├── redis_service.py
+│       ├── script_logger.py
+│       ├── stt_service.py
+│       ├── tts_service.py
+│       ├── twilio_service.py
 ```
 
 ---
 
-## ⚙️ 설치 방법
+## 📄 주요 파일별 설명 및 기능
 
-```bash
-# 1. 프로젝트 설치
-pip install -r requirements.txt
+### app/
 
-# 2. Whisper 모델 (STT) 및 Transformers 설치
-pip install openai-whisper transformers torch
+- **main.py** : FastAPI 앱 실행 및 라우터 등록(서버 진입점)
+- **config.py** : 환경 변수(.env) 로드 및 Twilio, Redis, LLM, gRPC 등 설정 관리
+- **models.py** : 사용자 데이터, 질문, 취약 정보 등 Pydantic 데이터 모델 정의
+- **routes.py** :
+  - `/receive` : 사용자 데이터 수신, 질문 리스트 Redis 저장, Twilio 전화 발신
+  - `/twilio/voice` : Twilio Webhook, 음성(STT) → 답변 생성(redis/LLM) → TTS → TwiML 반환(반복 구조)
+  - `/send_llm_result` : LLM 상담 요약/분석 결과를 Spring Boot로 전송
 
-# 3. .env 설정
-cp .env.example .env
-vi .env
-```
+### app/services/
 
----
+- **llm_service.py** : OpenAI 기반 LLM 답변 생성 (질문/대화 요약)
+- **redis_service.py** : 질문 리스트 Redis 저장, 유사 질문 답변 탐색
+- **script_logger.py** : 대화 로그 기록 및 조회
+- **stt_service.py** : gRPC로 음성(STT) 변환
+- **tts_service.py** : gRPC로 텍스트(TTS) 변환, TwiML(XML) 생성(반복 구조)
+- **twilio_service.py** : Twilio API로 전화 발신
 
-## 📁 주요 폴더 구조
+### app/protos/
 
-```
-CapstonDesign_CodeLearning/
-├── calling_orchestrator/
-│   ├── Service/            # 주요 서비스 모듈들
-│   │   ├── stt_service.py
-│   │   ├── tts_service.py
-│   │   ├── llm_orchestrator.py
-│   │   ├── summary_service.py
-│   │   ├── calling_api.py
-│   │   ├── twilio_call_trigger.py
-│   │   ├── twilio_stream_handler.py
-│   │   └── twilio_handler.py
-│   └── main.py             # 시스템 전체 실행 진입점
-│
-├── grpc_proto/             # gRPC용 proto 파일 및 컴파일 결과
-├── grpc_server/            # STT/TTS 서버
-├── .env.example            # 환경변수 템플릿
-└── README.md
-```
+- **stt_pb2.py, stt_pb2_grpc.py** : gRPC STT Stub
+- **tts_pb2.py, tts_pb2_grpc.py** : gRPC TTS Stub
 
 ---
 
-## 🚀 실행 방법
+## ⚙️ 전체 실행 및 구현 흐름
 
-```bash
-# 1. gRPC 서버 실행 (각각 다른 터미널에서)
-python grpc_server/stt_server.py
-python grpc_server/tts_server.py
+1. **서버 실행**
 
-# 2. 메인 서버 실행 (FastAPI + WebSocket 동시)
-python calling_orchestrator/main.py
+   - `python -m app.main` 또는 uvicorn으로 FastAPI 서버 실행
+   - 환경 변수는 `.env` 파일에서 자동 로드
 
-# 3. 전화 걸기 (사전 등록된 수신자 번호 필요)
-python calling_orchestrator/Service/twilio_call_trigger.py
-```
+2. **상담 시작**
 
----
+   - `/receive`로 사용자 정보 및 질문 리스트 POST
+   - 질문 리스트를 Redis에 저장, Twilio로 전화 발신(상담 대상자에게)
 
-## 📦 주요 환경 변수 (.env)
+3. **음성 대화 반복**
 
-```env
-TWILIO_ACCOUNT_SID=your_sid
-TWILIO_AUTH_TOKEN=your_token
-TWILIO_PHONE_NUMBER=+1xxxxxxx
-CALLING_SERVICE_URL=http://localhost:8000/api/call_result
-```
+   - 사용자가 전화를 받으면 Twilio가 `/twilio/voice`로 Webhook POST
+   - FastAPI가 녹음 URL을 받아 STT 변환 → 텍스트로 변환
+   - Redis에서 질문 매칭 답변 탐색, 없으면 LLM(OpenAI)로 답변 생성
+   - 답변을 gRPC TTS로 음성 변환, TwiML(XML)로 `<Play>`+`<Record>` 반환
+   - Twilio가 답변 음성 재생 후, `<Record>`로 다음 사용자 발화 녹음 → 다시 `/twilio/voice`로 POST (무한 반복)
+   - 각 대화는 script_logger로 로그 기록
 
----
-
-## 🧪 테스트용 CLI/Client 제공 예정
-- `test_client.py` 를 통해 WebSocket 시뮬레이션 예정
-- STT/TTS 단독 테스트도 모듈 단위로 가능
+4. **상담 종료 및 요약**
+   - 대화 종료 후, 전체 대화 로그를 LLM에 전달해 요약/분석
+   - `/send_llm_result`로 Spring Boot 백엔드에 결과 전송
 
 ---
 
-## ✍️ 기여자 / 관리
-- 담당자: (이름)
-- 학교/팀: (캡스톤 팀명)
-- GitHub: (선택 사항)
+## 📝 주요 특징
+
+- Twilio와 FastAPI Webhook, gRPC STT/TTS, Redis, OpenAI LLM 연동
+- TwiML `<Play>`+`<Record>` 반복 구조로 자연스러운 다중 턴 음성 대화 지원
+- 모든 대화 로그 자동 기록 및 상담 요약 자동화
 
 ---
 
-## ✅ TODO
-- [ ] test_client.py 작성
-- [ ] STT 성능 튜닝
-- [ ] UI 연동 또는 대시보드 구축
+## 💡 실행 방법
+
+1. `.env` 파일에 Twilio, Redis, OpenAI 등 환경 변수 설정
+2. `pip install -r requierment.txt`로 의존성 설치
+3. `python -m app.main` 또는 `uvicorn app.main:app --reload`로 서버 실행
+
+---
+
+## 문의 및 참고
+
+- Twilio, FastAPI, gRPC, OpenAI, Redis 공식 문서 참고
+- 추가 기능/구조 문의는 개발자에게 연락

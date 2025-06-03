@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+redis
+twilio
+grpcio
+grpcio-tools
+langchain
+openai
+aiohttp
+python-dotenv
