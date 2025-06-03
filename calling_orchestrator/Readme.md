@@ -89,10 +89,10 @@ calling_orchestrator/
 
 ---
 
-## 📝 주요 특징
+## 📝 설명
 
 - Twilio와 FastAPI Webhook, gRPC STT/TTS, Redis, OpenAI LLM 연동
-- TwiML `<Play>`+`<Record>` 반복 구조로 자연스러운 다중 턴 음성 대화 지원
+- TwiML `<Play>`+`<Record>` 반복 구조 사용 => 대화 지속 가능
 - 모든 대화 로그 자동 기록 및 상담 요약 자동화
 
 ---
