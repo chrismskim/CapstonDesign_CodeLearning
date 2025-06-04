@@ -1,24 +1,13 @@
 package voicebot.management.question.entity;
 
-import jakarta.persistence.*;
 import lombok.*;
 
-@Entity
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+import java.util.List;
+
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ExpectedResponse {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
-    private String text;
+    private String text; // 예상 답변 내용
 
-    private int responseType;
-
-    @ManyToOne
-    @JoinColumn(name = "question_id")
-    private Question question;
+    private List<ResponseTypeInfo> responseTypeList; // 응답 분류 정보(위기, 욕구)
 }

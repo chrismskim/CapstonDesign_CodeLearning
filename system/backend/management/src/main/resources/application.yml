@@ -4,19 +4,29 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/Question
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: update
     show-sql: true
+
   h2:
     console:
       enabled: true
       path: /h2-console
 
+server:
+  port: 8080
+
 jwt:
   secret: your-secret-key-should-be-very-long-and-secure-at-least-32-characters
   expiration: 86400 # 24시간
 
-server:
-  port: 8080 
+logging:
+  level:
+    root: INFO
+    Question.management: DEBUG

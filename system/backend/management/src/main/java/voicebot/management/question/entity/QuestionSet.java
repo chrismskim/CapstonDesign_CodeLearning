@@ -1,26 +1,21 @@
 package voicebot.management.question.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Id;
 import lombok.*;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Entity
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Document(collection = "question_sets")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class QuestionSet {
+    @Id // MongoDB의 _id 역할을 하는 필드 (primary key)
+    private String id;
 
-    @Id
-    private String questionsId;  // "질문_001"
+    private LocalDateTime time; // 질문 세트 생성 시각
 
-    private String title;
+    private String title; // 질문 세트의 제목 (시나리오 제목)
 
-    private LocalDateTime time;
-
-    @OneToMany(mappedBy = "questionSet", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Question> flow;
+    private List<QuestionItem> flow; // 질문 리스트 (시나리오 흐름)
 }

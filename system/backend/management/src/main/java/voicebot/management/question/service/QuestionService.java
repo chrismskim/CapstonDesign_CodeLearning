@@ -1,109 +1,128 @@
 package voicebot.management.question.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import voicebot.management.question.dto.*;
 import voicebot.management.question.entity.*;
 import voicebot.management.question.repository.QuestionSetRepository;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class QuestionService {
 
-    private final QuestionSetRepository questionSetRepository;
+    private final QuestionSetRepository repository;
 
-    public List<QuestionSetDto> getAllQuestionSets() {
-        return questionSetRepository.findAll().stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+    // 질문 세트 전체 조회
+    public List<QuestionSetDto> getAll() {
+        log.info("📦 [Service] 모든 질문 세트 조회");
+        return repository.findAll().stream()
+                .map(this::toDto) // Entity → DTO 변환
+                .toList();
     }
 
-    public QuestionSetDto getQuestionSetById(String id) {
-        return questionSetRepository.findById(id)
-                .map(this::toDto)
+    // 특정 질문 세트 조회
+    public QuestionSetDto getById(String id) {
+        log.info("🔍 [Service] 질문 세트 ID 조회: {}", id);
+        return repository.findById(id)
+                .map(this::toDto) // Entity → DTO
                 .orElse(null);
     }
 
-    @Transactional
-    public QuestionSetDto saveQuestionSet(QuestionSetDto dto) {
-        QuestionSet saved = questionSetRepository.save(toEntity(dto));
-        return toDto(saved);
+    // 질문 세트 새로 저장
+    public QuestionSetDto create(QuestionSetDto dto) {
+        log.info("📝 [Service] 질문 세트 생성 요청: {}", dto);
+        QuestionSet saved = repository.save(toEntity(dto)); // DTO → Entity → 저장
+        log.info("✅ [Service] 저장 완료: {}", saved);
+        return toDto(saved); // 저장된 Entity → DTO 변환
     }
 
-    @Transactional
-    public QuestionSetDto updateQuestionSet(String id, QuestionSetDto dto) {
-        Optional<QuestionSet> optional = questionSetRepository.findById(id);
-        if (optional.isEmpty()) return null;
-
-        // 기존 데이터 삭제 후 새로 저장
-        questionSetRepository.deleteById(id);
-        return saveQuestionSet(dto);
+    // 기존 질문 세트 수정
+    public QuestionSetDto update(String id, QuestionSetDto dto) {
+        log.info("✏️ [Service] 질문 세트 수정 요청: ID={}, DTO={}", id, dto);
+        if (!repository.existsById(id)) {
+            log.warn("⚠️ [Service] 수정 실패 - 존재하지 않음: {}", id);
+            return null;
+        }
+        dto.setId(id);
+        return toDto(repository.save(toEntity(dto))); // 저장 후 DTO로 리턴
     }
 
-    public void deleteQuestionSet(String id) {
-        questionSetRepository.deleteById(id);
+    // 질문 세트 삭제
+    public boolean delete(String id) {
+        log.info("🗑 [Service] 질문 세트 삭제 요청: {}", id);
+
+        if (!repository.existsById(id)) {
+            log.warn("⚠️ [Service] 삭제 실패 - 존재하지 않음: {}", id);
+            return false;
+        }
+        repository.deleteById(id);
+        return true;
     }
 
-    // ---------------------- Mapper ----------------------
-    private QuestionSetDto toDto(QuestionSet entity) {
-        return QuestionSetDto.builder()
-                .questionsId(entity.getQuestionsId())
-                .title(entity.getTitle())
-                .time(entity.getTime())
-                .flow(entity.getFlow().stream().map(this::toDto).collect(Collectors.toList()))
-                .build();
-    }
-
-    private QuestionDto toDto(Question entity) {
-        return QuestionDto.builder()
-                .questionId(entity.getQuestionId())
-                .text(entity.getText())
-                .type(entity.getType())
-                .expectedResponse(
-                        entity.getExpectedResponses().stream().map(this::toDto).collect(Collectors.toList()))
-                .build();
-    }
-
-    private ExpectedResponseDto toDto(ExpectedResponse entity) {
-        return ExpectedResponseDto.builder()
-                .text(entity.getText())
-                .responseType(entity.getResponseType())
-                .build();
-    }
-
+    //──────────── DTO → Entity 변환 ──────────────
     private QuestionSet toEntity(QuestionSetDto dto) {
-        List<Question> questionList = dto.getFlow().stream().map(qDto -> {
-            List<ExpectedResponse> responses = qDto.getExpectedResponse().stream()
-                    .map(er -> ExpectedResponse.builder()
+        List<QuestionItem> flow = dto.getFlow().stream().map(q -> {
+            List<ExpectedResponse> erList = q.getExpectedResponse().stream().map(er ->
+                    ExpectedResponse.builder()
                             .text(er.getText())
-                            .responseType(er.getResponseType())
-                            .build())
-                    .collect(Collectors.toList());
+                            .responseTypeList(er.getResponseTypeList() == null ? null :
+                                    er.getResponseTypeList().stream().map(rt ->
+                                            ResponseTypeInfo.builder()
+                                                    .responseType(rt.getResponseType())
+                                                    .responseIndex(rt.getResponseIndex())
+                                                    .build()
+                                    ).toList()
+                            )
+                            .build()
+            ).toList();
 
-            Question question = Question.builder()
-                    .questionId(qDto.getQuestionId())
-                    .text(qDto.getText())
-                    .type(qDto.getType())
-                    .expectedResponses(responses)
+            return QuestionItem.builder()
+                    .text(q.getText())
+                    .expectedResponse(erList)
                     .build();
+        }).toList();
 
-            responses.forEach(r -> r.setQuestion(question));
-            return question;
-        }).collect(Collectors.toList());
-
-        QuestionSet qs = QuestionSet.builder()
-                .questionsId(dto.getQuestionsId())
+        return QuestionSet.builder()
+                .id(dto.getId())
                 .title(dto.getTitle())
                 .time(dto.getTime())
-                .flow(questionList)
+                .flow(flow)
                 .build();
+    }
 
-        questionList.forEach(q -> q.setQuestionSet(qs));
-        return qs;
+    //──────────── Entity → DTO 변환 ──────────────
+    private QuestionSetDto toDto(QuestionSet entity) {
+        List<QuestionItemDto> flow = entity.getFlow().stream().map(q -> {
+            List<ExpectedResponseDto> erList = q.getExpectedResponse().stream().map(er ->
+                    ExpectedResponseDto.builder()
+                            .text(er.getText())
+                            .responseTypeList(er.getResponseTypeList() == null ? null :
+                                    er.getResponseTypeList().stream().map(rt ->
+                                            ResponseTypeInfoDto.builder()
+                                                    .responseType(rt.getResponseType())
+                                                    .responseIndex(rt.getResponseIndex())
+                                                    .build()
+                                    ).toList()
+                            )
+                            .build()
+            ).toList();
+
+            return QuestionItemDto.builder()
+                    .text(q.getText())
+                    .expectedResponse(erList)
+                    .build();
+        }).toList();
+
+        return QuestionSetDto.builder()
+                .id(entity.getId())
+                .title(entity.getTitle())
+                .time(entity.getTime())
+                .flow(flow)
+                .build();
     }
 }
+
