@@ -108,3 +108,22 @@ calling_orchestrator/
 ## 문의 및 참고
 
 - Twilio, FastAPI, gRPC, OpenAI, Redis 공식 문서 참고
+
+
+---
+## TODO
+
+**env 값 수정 필요**
+
+1. twilio SID, TOKEN, Number, WEBHOOK_URL 받기
+
+2. REST API 토큰
+
+3. OPEN API 토큰
+
+4. GPRC 서버 주소
+
+5. FAST API 서버 port
+
+6. redis HOST, PORT, DB
+
