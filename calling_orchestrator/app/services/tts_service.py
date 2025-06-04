@@ -1,7 +1,6 @@
 import grpc
 from app.config import GRPC_TTS_URL
-import tts_pb2
-import tts_pb2_grpc
+from app.protos import tts_pb2, tts_pb2_grpc
 
 async def text_to_twiml(text: str) -> str:
     async with grpc.aio.insecure_channel(GRPC_TTS_URL) as channel:

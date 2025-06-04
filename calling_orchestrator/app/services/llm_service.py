@@ -1,4 +1,4 @@
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from app.config import LANGCHAIN_API_KEY
 import os
 
