@@ -4,7 +4,8 @@ redis
 twilio
 grpcio
 grpcio-tools
-langchain
+langchain_openai
 openai
 aiohttp
 python-dotenv
+tqdm>=4.66.3
