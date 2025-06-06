@@ -13,7 +13,7 @@ router = APIRouter()
 TWILIO_WEBHOOK_URL = os.getenv("TWILIO_WEBHOOK_URL", "http://localhost:8000/twilio/voice")
 SPRING_BOOT_URL = os.getenv("SPRING_BOOT_URL", "http://localhost:8080/api/consult/result")
 
-@router.post("/receive")
+@router.post("/api/receive")
 async def receive_user_data(user: UserData):
     try:
         question_data = jsonable_encoder(user.question_list)
@@ -29,7 +29,7 @@ async def receive_user_data(user: UserData):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/twilio/voice")
+@router.post("/api/twilio/voice")
 async def handle_twilio_voice(request: Request):
     form_data = await request.form()
     audio_url = form_data.get("RecordingUrl")
@@ -47,7 +47,7 @@ async def handle_twilio_voice(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 # LLM 분석 결과를 받아 Spring Boot로 전송하는 엔드포인트
-@router.post("/send_llm_result")
+@router.post("/api/send_llm_result")
 async def send_llm_result(llm_result: dict):
     """
     llm_result는 실제 LLM이 생성한 상담 요약/분석 결과를 그대로 받음
