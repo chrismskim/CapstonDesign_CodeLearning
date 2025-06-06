@@ -1,11 +1,13 @@
 fastapi
 uvicorn
+pydantic
+httpx
 redis
 twilio
 grpcio
 grpcio-tools
+aiohttp
 langchain_openai
 openai
-aiohttp
-python-dotenv
 tqdm>=4.66.3
+python-dotenv
