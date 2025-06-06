@@ -1,7 +1,7 @@
 #사용자 데이터 및 요청/응답에 사용할 Pydantic 모델 정의
 
-from typing import List
-from pydantic import BaseModel
+from typing import Any, List
+from pydantic import BaseModel, Extra
 
 class ResponseType(BaseModel):
     response_type: int
