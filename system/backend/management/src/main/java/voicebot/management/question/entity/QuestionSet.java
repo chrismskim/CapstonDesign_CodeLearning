@@ -10,7 +10,7 @@ import java.util.List;
 @Document(collection = "question_sets")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class QuestionSet {
-    @Id // MongoDB의 _id 역할을 하는 필드 (primary key)
+    @Id
     private String id;
 
     private LocalDateTime time; // 질문 세트 생성 시각

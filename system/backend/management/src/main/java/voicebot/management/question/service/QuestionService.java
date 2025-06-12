@@ -8,6 +8,7 @@ import voicebot.management.question.entity.*;
 import voicebot.management.question.repository.QuestionSetRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -16,54 +17,56 @@ public class QuestionService {
 
     private final QuestionSetRepository repository;
 
-    // 질문 세트 전체 조회
-    public List<QuestionSetDto> getAll() {
-        log.info("📦 [Service] 모든 질문 세트 조회");
+    public List<QuestionSetDto> findAll() {
+        log.info("[QUESTION][SERVICE][FIND_ALL] 전체 조회 요청");
         return repository.findAll().stream()
-                .map(this::toDto) // Entity → DTO 변환
+                .map(this::toDto)
                 .toList();
     }
 
-    // 특정 질문 세트 조회
-    public QuestionSetDto getById(String id) {
-        log.info("🔍 [Service] 질문 세트 ID 조회: {}", id);
-        return repository.findById(id)
-                .map(this::toDto) // Entity → DTO
-                .orElse(null);
+    public Optional<QuestionSetDto> findById(String questionId) {
+        log.info("[QUESTION][SERVICE][FIND_BY_ID] 조회 요청: {}", questionId);
+        return repository.findById(questionId)
+                .map(entity -> {
+                    log.info("[QUESTION][SERVICE][FIND_BY_ID] 조회 성공: {}", questionId);
+                    return toDto(entity);
+                });
     }
 
-    // 질문 세트 새로 저장
     public QuestionSetDto create(QuestionSetDto dto) {
-        log.info("📝 [Service] 질문 세트 생성 요청: {}", dto);
-        QuestionSet saved = repository.save(toEntity(dto)); // DTO → Entity → 저장
-        log.info("✅ [Service] 저장 완료: {}", saved);
-        return toDto(saved); // 저장된 Entity → DTO 변환
+        log.info("[QUESTION][SERVICE][CREATE] 생성 요청: {}", dto.getId());
+        if (repository.existsById(dto.getId())) {
+            log.warn("[QUESTION][SERVICE][CREATE] 중복 ID: {}", dto.getId());
+            throw new IllegalStateException("이미 존재하는 questionId입니다.");
+        }
+        QuestionSet saved = repository.save(toEntity(dto));
+        log.info("[QUESTION][SERVICE][CREATE] 저장 완료: {}", saved.getId());
+        return toDto(saved);
     }
 
-    // 기존 질문 세트 수정
-    public QuestionSetDto update(String id, QuestionSetDto dto) {
-        log.info("✏️ [Service] 질문 세트 수정 요청: ID={}, DTO={}", id, dto);
-        if (!repository.existsById(id)) {
-            log.warn("⚠️ [Service] 수정 실패 - 존재하지 않음: {}", id);
+    public QuestionSetDto update(String questionId, QuestionSetDto dto) {
+        log.info("[QUESTION][SERVICE][UPDATE] 수정 요청: {}", questionId);
+        if (!repository.existsById(questionId)) {
+            log.warn("[QUESTION][SERVICE][UPDATE] 존재하지 않음: {}", questionId);
             return null;
         }
-        dto.setId(id);
-        return toDto(repository.save(toEntity(dto))); // 저장 후 DTO로 리턴
+        dto.setId(questionId);
+        QuestionSet updated = repository.save(toEntity(dto));
+        log.info("[QUESTION][SERVICE][UPDATE] 수정 완료: {}", questionId);
+        return toDto(updated);
     }
 
-    // 질문 세트 삭제
-    public boolean delete(String id) {
-        log.info("🗑 [Service] 질문 세트 삭제 요청: {}", id);
-
-        if (!repository.existsById(id)) {
-            log.warn("⚠️ [Service] 삭제 실패 - 존재하지 않음: {}", id);
+    public boolean delete(String questionId) {
+        log.info("[QUESTION][SERVICE][DELETE] 삭제 요청: {}", questionId);
+        if (!repository.existsById(questionId)) {
+            log.warn("[QUESTION][SERVICE][DELETE] 존재하지 않음: {}", questionId);
             return false;
         }
-        repository.deleteById(id);
+        repository.deleteById(questionId);
+        log.info("[QUESTION][SERVICE][DELETE] 삭제 완료: {}", questionId);
         return true;
     }
 
-    //──────────── DTO → Entity 변환 ──────────────
     private QuestionSet toEntity(QuestionSetDto dto) {
         List<QuestionItem> flow = dto.getFlow().stream().map(q -> {
             List<ExpectedResponse> erList = q.getExpectedResponse().stream().map(er ->
@@ -94,7 +97,6 @@ public class QuestionService {
                 .build();
     }
 
-    //──────────── Entity → DTO 변환 ──────────────
     private QuestionSetDto toDto(QuestionSet entity) {
         List<QuestionItemDto> flow = entity.getFlow().stream().map(q -> {
             List<ExpectedResponseDto> erList = q.getExpectedResponse().stream().map(er ->
@@ -125,4 +127,3 @@ public class QuestionService {
                 .build();
     }
 }
-
