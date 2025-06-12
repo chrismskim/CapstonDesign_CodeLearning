@@ -1,7 +1,7 @@
 package voicebot.management.question.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import voicebot.management.question.entity.QuestionSet;
 
-public interface QuestionSetRepository extends JpaRepository<QuestionSet, String> {
+public interface QuestionSetRepository extends MongoRepository<QuestionSet, String> {
 }

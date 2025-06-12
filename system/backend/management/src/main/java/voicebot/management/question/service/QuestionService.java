@@ -1,109 +1,129 @@
 package voicebot.management.question.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import voicebot.management.question.dto.*;
 import voicebot.management.question.entity.*;
 import voicebot.management.question.repository.QuestionSetRepository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class QuestionService {
 
-    private final QuestionSetRepository questionSetRepository;
+    private final QuestionSetRepository repository;
 
-    public List<QuestionSetDto> getAllQuestionSets() {
-        return questionSetRepository.findAll().stream()
+    public List<QuestionSetDto> findAll() {
+        log.info("[QUESTION][SERVICE][FIND_ALL] 전체 조회 요청");
+        return repository.findAll().stream()
                 .map(this::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    public QuestionSetDto getQuestionSetById(String id) {
-        return questionSetRepository.findById(id)
-                .map(this::toDto)
-                .orElse(null);
+    public Optional<QuestionSetDto> findById(String questionId) {
+        log.info("[QUESTION][SERVICE][FIND_BY_ID] 조회 요청: {}", questionId);
+        return repository.findById(questionId)
+                .map(entity -> {
+                    log.info("[QUESTION][SERVICE][FIND_BY_ID] 조회 성공: {}", questionId);
+                    return toDto(entity);
+                });
     }
 
-    @Transactional
-    public QuestionSetDto saveQuestionSet(QuestionSetDto dto) {
-        QuestionSet saved = questionSetRepository.save(toEntity(dto));
+    public QuestionSetDto create(QuestionSetDto dto) {
+        log.info("[QUESTION][SERVICE][CREATE] 생성 요청: {}", dto.getId());
+        if (repository.existsById(dto.getId())) {
+            log.warn("[QUESTION][SERVICE][CREATE] 중복 ID: {}", dto.getId());
+            throw new IllegalStateException("이미 존재하는 questionId입니다.");
+        }
+        QuestionSet saved = repository.save(toEntity(dto));
+        log.info("[QUESTION][SERVICE][CREATE] 저장 완료: {}", saved.getId());
         return toDto(saved);
     }
 
-    @Transactional
-    public QuestionSetDto updateQuestionSet(String id, QuestionSetDto dto) {
-        Optional<QuestionSet> optional = questionSetRepository.findById(id);
-        if (optional.isEmpty()) return null;
-
-        // 기존 데이터 삭제 후 새로 저장
-        questionSetRepository.deleteById(id);
-        return saveQuestionSet(dto);
+    public QuestionSetDto update(String questionId, QuestionSetDto dto) {
+        log.info("[QUESTION][SERVICE][UPDATE] 수정 요청: {}", questionId);
+        if (!repository.existsById(questionId)) {
+            log.warn("[QUESTION][SERVICE][UPDATE] 존재하지 않음: {}", questionId);
+            return null;
+        }
+        dto.setId(questionId);
+        QuestionSet updated = repository.save(toEntity(dto));
+        log.info("[QUESTION][SERVICE][UPDATE] 수정 완료: {}", questionId);
+        return toDto(updated);
     }
 
-    public void deleteQuestionSet(String id) {
-        questionSetRepository.deleteById(id);
-    }
-
-    // ---------------------- Mapper ----------------------
-    private QuestionSetDto toDto(QuestionSet entity) {
-        return QuestionSetDto.builder()
-                .questionsId(entity.getQuestionsId())
-                .title(entity.getTitle())
-                .time(entity.getTime())
-                .flow(entity.getFlow().stream().map(this::toDto).collect(Collectors.toList()))
-                .build();
-    }
-
-    private QuestionDto toDto(Question entity) {
-        return QuestionDto.builder()
-                .questionId(entity.getQuestionId())
-                .text(entity.getText())
-                .type(entity.getType())
-                .expectedResponse(
-                        entity.getExpectedResponses().stream().map(this::toDto).collect(Collectors.toList()))
-                .build();
-    }
-
-    private ExpectedResponseDto toDto(ExpectedResponse entity) {
-        return ExpectedResponseDto.builder()
-                .text(entity.getText())
-                .responseType(entity.getResponseType())
-                .build();
+    public boolean delete(String questionId) {
+        log.info("[QUESTION][SERVICE][DELETE] 삭제 요청: {}", questionId);
+        if (!repository.existsById(questionId)) {
+            log.warn("[QUESTION][SERVICE][DELETE] 존재하지 않음: {}", questionId);
+            return false;
+        }
+        repository.deleteById(questionId);
+        log.info("[QUESTION][SERVICE][DELETE] 삭제 완료: {}", questionId);
+        return true;
     }
 
     private QuestionSet toEntity(QuestionSetDto dto) {
-        List<Question> questionList = dto.getFlow().stream().map(qDto -> {
-            List<ExpectedResponse> responses = qDto.getExpectedResponse().stream()
-                    .map(er -> ExpectedResponse.builder()
+        List<QuestionItem> flow = dto.getFlow().stream().map(q -> {
+            List<ExpectedResponse> erList = q.getExpectedResponse().stream().map(er ->
+                    ExpectedResponse.builder()
                             .text(er.getText())
-                            .responseType(er.getResponseType())
-                            .build())
-                    .collect(Collectors.toList());
+                            .responseTypeList(er.getResponseTypeList() == null ? null :
+                                    er.getResponseTypeList().stream().map(rt ->
+                                            ResponseTypeInfo.builder()
+                                                    .responseType(rt.getResponseType())
+                                                    .responseIndex(rt.getResponseIndex())
+                                                    .build()
+                                    ).toList()
+                            )
+                            .build()
+            ).toList();
 
-            Question question = Question.builder()
-                    .questionId(qDto.getQuestionId())
-                    .text(qDto.getText())
-                    .type(qDto.getType())
-                    .expectedResponses(responses)
+            return QuestionItem.builder()
+                    .text(q.getText())
+                    .expectedResponse(erList)
                     .build();
+        }).toList();
 
-            responses.forEach(r -> r.setQuestion(question));
-            return question;
-        }).collect(Collectors.toList());
-
-        QuestionSet qs = QuestionSet.builder()
-                .questionsId(dto.getQuestionsId())
+        return QuestionSet.builder()
+                .id(dto.getId())
                 .title(dto.getTitle())
                 .time(dto.getTime())
-                .flow(questionList)
+                .flow(flow)
                 .build();
+    }
 
-        questionList.forEach(q -> q.setQuestionSet(qs));
-        return qs;
+    private QuestionSetDto toDto(QuestionSet entity) {
+        List<QuestionItemDto> flow = entity.getFlow().stream().map(q -> {
+            List<ExpectedResponseDto> erList = q.getExpectedResponse().stream().map(er ->
+                    ExpectedResponseDto.builder()
+                            .text(er.getText())
+                            .responseTypeList(er.getResponseTypeList() == null ? null :
+                                    er.getResponseTypeList().stream().map(rt ->
+                                            ResponseTypeInfoDto.builder()
+                                                    .responseType(rt.getResponseType())
+                                                    .responseIndex(rt.getResponseIndex())
+                                                    .build()
+                                    ).toList()
+                            )
+                            .build()
+            ).toList();
+
+            return QuestionItemDto.builder()
+                    .text(q.getText())
+                    .expectedResponse(erList)
+                    .build();
+        }).toList();
+
+        return QuestionSetDto.builder()
+                .id(entity.getId())
+                .title(entity.getTitle())
+                .time(entity.getTime())
+                .flow(flow)
+                .build();
     }
 }
