@@ -252,3 +252,13 @@ gradle-app.setting
 ### Gradle Patch ###
 # Java heap dump
 *.hprof
+
+admin-dashboard-callbot/node_modules
+admin-dashboard-callbot/package-lock.json
+admin-dashboard-callbot/package.json
+admin-dashboard-callbot/pnpm-lock.yaml
+admin-dashboard-callbot/pnpm-workspace.yaml
+admin-dashboard-callbot/pnpm-workspace.yaml
+admin-dashboard-callbot-original/*
+
+
