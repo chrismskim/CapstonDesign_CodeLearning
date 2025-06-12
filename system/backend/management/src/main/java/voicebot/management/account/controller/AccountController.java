@@ -6,20 +6,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import voicebot.management.account.dto.AccountDTO;
-import voicebot.management.account.dto.LoginRequestDTO;
-import voicebot.management.account.dto.LoginResponseDTO;
 import voicebot.management.account.service.AccountService;
 
 @RestController
-@RequestMapping("/api/account")
+@RequestMapping("/api/accounts")
 @RequiredArgsConstructor
 public class AccountController {
     private final AccountService accountService;
-
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO request) {
-        return ResponseEntity.ok(accountService.login(request));
-    }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestHeader("Authorization") String token) {
@@ -27,20 +20,15 @@ public class AccountController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/add")
-    public ResponseEntity<AccountDTO> register(@Valid @RequestBody AccountDTO accountDTO) {
-        return ResponseEntity.ok(accountService.register(accountDTO));
-    }
-
-    @PostMapping("/info")
-    public ResponseEntity<AccountDTO> getAccountInfo(Authentication authentication) {
+    @GetMapping("/me")
+    public ResponseEntity<AccountDTO> getMyAccountInfo(Authentication authentication) {
         return ResponseEntity.ok(accountService.getAccountInfo(authentication.getName()));
     }
 
-    @PutMapping("/change")
-    public ResponseEntity<AccountDTO> updateAccount(
+    @PutMapping("/me")
+    public ResponseEntity<AccountDTO> updateMyAccount(
             Authentication authentication,
-            @Valid @RequestBody AccountDTO accountDTO) {
-        return ResponseEntity.ok(accountService.updateAccount(authentication.getName(), accountDTO));
+            @Valid @RequestBody AccountDTO accountDto) {
+        return ResponseEntity.ok(accountService.updateAccount(authentication.getName(), accountDto));
     }
 } 

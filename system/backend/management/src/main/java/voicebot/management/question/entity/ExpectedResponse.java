@@ -1,24 +1,29 @@
 package voicebot.management.question.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import org.springframework.data.mongodb.core.mapping.Field;
+import java.util.List;
 
-@Entity
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class ExpectedResponse {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
-    private String text;
+    private String text; // 예상 답변 내용
 
-    private int responseType;
+    @Field("response_type_list")
+    private List<ResponseType> responseTypeList;
 
-    @ManyToOne
-    @JoinColumn(name = "question_id")
-    private Question question;
+    // Manual Getters and Setters
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    public List<ResponseType> getResponseTypeList() {
+        return responseTypeList;
+    }
+
+    public void setResponseTypeList(List<ResponseType> responseTypeList) {
+        this.responseTypeList = responseTypeList;
+    }
 }

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,8 @@ import voicebot.management.account.entity.Account;
 import voicebot.management.account.repository.AccountRepository;
 import voicebot.management.account.util.JwtUtil;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class AccountService {
@@ -25,15 +28,13 @@ public class AccountService {
     private final TokenBlacklistService tokenBlacklistService;
 
     @Transactional
-    public LoginResponseDTO login(LoginRequestDTO request) {
-        Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.getUserId(), request.getPassword())
+    public AccountDTO authenticate(String userId, String password) throws AuthenticationException {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(userId, password)
         );
-
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        String token = jwtUtil.generateToken(userDetails);
-
-        return new LoginResponseDTO(token, request.getUserId());
+        Account account = accountRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Authenticate passed but user not found"));
+        return convertToDTO(account);
     }
 
     @Transactional
@@ -48,10 +49,22 @@ public class AccountService {
         }
 
         Account account = new Account();
+        account.setId(UUID.randomUUID().toString());
         account.setUserId(accountDTO.getUserId());
         account.setPassword(passwordEncoder.encode(accountDTO.getPassword()));
         account.setPhoneNumber(accountDTO.getPhoneNumber());
         account.setEmail(accountDTO.getEmail());
+
+        // 'rootadmin' 사용자는 항상 루트 권한을 가지며 자동으로 승인됩니다.
+        if ("rootadmin".equals(accountDTO.getUserId())) {
+            account.setRoot(true);
+            account.setApproved(true);
+        } else {
+            // 그 외의 경우, 첫 가입자인지 확인하여 루트 권한 부여
+            boolean isFirstUser = accountRepository.count() == 0;
+            account.setRoot(isFirstUser);
+            account.setApproved(isFirstUser); // 첫 사용자는 바로 승인
+        }
 
         Account savedAccount = accountRepository.save(account);
         return convertToDTO(savedAccount);
@@ -88,6 +101,8 @@ public class AccountService {
         dto.setUserId(account.getUserId());
         dto.setPhoneNumber(account.getPhoneNumber());
         dto.setEmail(account.getEmail());
+        dto.setRoot(account.isRoot());
+        dto.setApproved(account.isApproved());
         return dto;
     }
 } 

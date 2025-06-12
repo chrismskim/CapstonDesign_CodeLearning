@@ -1,30 +1,27 @@
 package voicebot.management.question.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
-import voicebot.management.question.entity.QuestionSet;
-
 import java.util.List;
 
-@Entity
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class Question {
 
-    @Id
-    private String questionId; // "Q1"
+    private String text; // 질문 내용
 
-    private String text;
+    private List<ExpectedResponse> expectedAnswer;
 
-    private int type;
+    // Manual Getters and Setters
+    public String getText() {
+        return text;
+    }
 
-    @ManyToOne
-    @JoinColumn(name = "questions_id")
-    private QuestionSet questionSet;
+    public void setText(String text) {
+        this.text = text;
+    }
 
-    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ExpectedResponse> expectedResponses;
+    public List<ExpectedResponse> getExpectedAnswer() {
+        return expectedAnswer;
+    }
+
+    public void setExpectedAnswer(List<ExpectedResponse> expectedAnswer) {
+        this.expectedAnswer = expectedAnswer;
+    }
 }

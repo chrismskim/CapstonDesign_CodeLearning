@@ -5,7 +5,7 @@ import voicebot.management.account.entity.Account;
 
 import java.util.Optional;
 
-public interface AccountRepository extends JpaRepository<Account, Long> {
+public interface AccountRepository extends JpaRepository<Account, String> {
     Optional<Account> findByUserId(String userId);
     boolean existsByUserId(String userId);
 } 
