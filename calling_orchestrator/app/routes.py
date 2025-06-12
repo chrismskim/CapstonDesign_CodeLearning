@@ -1,7 +1,7 @@
 ### routes.py
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
-from app.models import UserData, FlexibleCallRequest
+from app.models import UserData
 from app.services import redis_service, twilio_service, stt_service, llm_service, tts_service, script_logger
 from fastapi.responses import Response, JSONResponse
 import httpx
