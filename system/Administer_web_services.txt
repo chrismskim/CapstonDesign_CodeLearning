@@ -1,0 +1,2430 @@
+﻿프로젝트명 AI 보이스봇을 활용한 취약계층 발굴 서비스
+기능설계서
+(요구기능명: 관리자 웹 서비스 - Administrator Web Service)
+(요구기능 ID: CON_002)
+(참조 파일명: 요구분석정의서문서명.docx)
+문서번호 :2 
+Version 1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+목      차
+	
+
+1.        요구기능 설명        3
+1.1.        주요 상세기능 설명        3
+1.2.        요구기능 동작 절차        4
+1.3.        동작 규칙        5
+1.4.        가정(Assumptions)        5
+2.        기술 설계        6
+DB 스키마         6
+기술 스택                                                                                                                                               10
+2.1.        상담 대상자와 질문 묶음 지정 후 대기열 생성 (MAN_001)        10
+2.2.        상담 결과 저장 (MAN_002)        14
+2.3.        상담 결과 통계 (MAN_003)        20
+2.4.        질문 관리 (MAN_004)        23
+2.5.        상담 대상자 관리 (MAN_005)        31
+2.6.        관리자 로그인 기능 (MAN_006)        36
+3.        UI 설계        38
+3.1.        로그인 화면 상세 설계        38
+3.2.        승인 대기 중 화면 상세 설계        40
+3.3.        회원가입 화면 상세 설계        41
+3.4.        대시보드 화면 상세 설계        43
+3.5.        취약 계층 화면 상세 설계        45
+3.6.        신규 취약 계층 등록 화면 상세 설계        47
+3.7.        취약 계층 상세 정보 조회 화면 상세 설계        49
+3.8.        취약 계층 상세 정보 수정 화면 상세 설계        50
+3.9.        질문 관리 화면 상세 설계        52
+3.10.        질문 관리 화면 상세 설계        54
+3.11.        질문 세트 수정 화면 상세 설계        56
+3.12.        상담 시작 화면 상세 설계        58
+3.13.        상담 진행 현황 화면 상세 설계        60
+3.14.        상담 결과 및 이력 화면 상세 설계        62
+3.15.        상담 상세 내역화면 상세 설계        64
+3.16.        상담 통계 화면 상세 설계        66
+3.17.        계정 설정 화면 상세 설계        67
+3.18.        계정 설정 화면 상세 설계        69
+요구기능 설명
+본 시스템은 AI 보이스 봇 상담을 통해 취약 계층을 대상으로 전화 상담을 자동으로 수행하는 과정을 관리하는 웹 서비스로, 상담 대상자와 질문을 관리하고, 상담 결과를 저장하고, 상담 결과에 대한 통계를 조회할 수 있다. 이를 통해 AI 보이스 봇을 IT 비전문가도 쉽게 이용할 수 있도록 하여, 지역 복지 담당자의 업무 부담을 줄여주는 것을 목표로 한다.
+   1. 주요 상세기능 설명
+   *  상담 대상자와 질문 묶음 지정 후 대기열 생성
+      * ID : MAN_001
+      * 정의 : 상담 대상자를 관리하기 위한 대기열을 생성하고 관리한다.
+      * 상세 설명: 상담 대상자를 대기열로 관리하여 상담 가능한 상태의 콜봇에 순차적으로 연결한다. 대기열을 통해 효율적인 상담 관리가 가능하며, 대기열 상태를 관리자 페이지에서 실시간으로 확인할 수 있다.
+   * 상담 결과 저장
+      * ID : MAN_002
+      * 정의 : AI 상담의 결과를 데이터베이스에 저장한다.
+      * 상세 설명: 상담 완료 후 전체 대화 내용, 요약한 내용, LLM이 발견한 위기 정보/욕구 정보를 데이터베이스에 저장한다.
+   * 상담 결과 통계
+      * ID : MAN_003
+      * 정의 : 상담 결과에 대한 다양한 통계를 제공한다.
+      * 상세 설명: 전체적인 상담이 완료된 후 심층 상담 대상자 비율, 심층 상담 비대상자 비율, 상담 불가자 비율 등 상담 결과에 대한 통계와 위기 정보 및 욕구 정보에 대한 비율을 산출하고 관리자가 쉽게 조회할 수 있도록 테이블 및 그래프 형태로 제공한다.
+   * 질문 관리
+      * ID : MAN_004
+      * 정의 : AI 상담 시스템이 상담 대상자에게 물어 볼 질문과 예상되는 답변을 관리한다.
+      * 상세 설명: AI 상담 시스템이 상담 대상자에게 물어 볼 질문을 구체적으로 설정하고, 예상되는 답변을 설정할 수 있다. 입력한 예상되는 답변은 AI 상담에서 정확도를 높이는 역할을 한다.
+   * 상담 대상자 관리
+      * ID : MAN_005
+      * 정의 : 상담 대상자에 대한 정보를 추가/삭제/수정 할 수 있고, 상담 대상자의 위기 및 욕구 정보를 조회할 수 있다.
+      * 상세 설명 : 상담 대상자의 정보를 추가, 삭제, 수정할 수 있으며, 상담을 통해 분석된 대상자의 위기 정보와 욕구 정보를 조회하여 체계적으로 관리한다.
+   * 관리자 로그인 기능
+      * ID : MAN_006
+      * 정의 : 관리자가 시스템을 안전하게 사용할 수 있도록 로그인 및 인증을 수행한다.
+      * 상세 설명 : 관리자는 고유한 계정으로 로그인하며, 인증 성공 시 JWT 토큰을 발급받아 관리 기능에 접근할 수 있다. 로그인 정보의 보안성과 접근 제어를 통해 시스템의 안전성을 유지한다.
+
+
+        
+   2. 요구기능 동작 절차
+본 웹 서비스는 다음의 단계를 수행하여, 취약 계층으로부터 위기 정보와 욕구 정보를 발견하여 이를 데이터베이스에 저장한다.
+1. 초기에 취약 계층과 질문을 등록을 한다.
+2. 상담 대상자와 질문을 입력한다.
+3. 상담 대상자에 대한 대기열을 생성한다.
+4. AI 보이스 봇이 상담 가능 할 때, 대기열에서 상담 대상자의 정보를 AI 보이스 봇에 전달하여 상담을 시작한다.
+5. AI 보이스 봇 상담 종료 후, AI 보이스 봇으로 부터 상담 결과 정보를 가져온다.
+6. 상담 결과 정보를 데이터베이스 저장 형식에 맞게 가공한 다음에 이를 데이터베이스에 저장한다.
+7. 상담 결과에 대한 통계를 조회한다.
+
+
+단계의 상세내용은 다음과 같다.
+* 단계 1 (취약 계층과 질문 등록) : 관리자는 초기 시스템 설정 단계에서 취약 계층의 기본 정보와 상담에 사용할 질문 리스트 및 예상 답변을 등록한다.
+* 단계 2 (상담 대상자와 질문 입력) : 관리자는 등록된 취약 계층 리스트에서 상담 대상자를 지정하고, 시스템에서 사용할 질문 묶음을 지정하여 상담 준비를 완료한다.
+* 단계 3 (상담 대상자에 대한 대기열 생성) : 입력된 상담 대상자는 시스템 내의 대기열에 자동으로 추가되고, 상담 가능한 상태가 된 AI 보이스 봇이 순차적으로 상담을 진행하도록 관리한다.
+* 단계 4 (AI 보이스 봇을 통한 상담 진행) : AI 보이스 봇이 상담 가능 상태일 때, 대기열에서 상담 대상자의 정보와 질문 리스트를 AI 보이스 봇에게 전달하고 상담을 시작한다.
+* 단계 5 (상담 종료 후 결과 정보 수집) : AI 보이스 봇이 상담을 완료하면, 시스템은 상담 결과 정보를 AI 봇으로부터 받아 수집한다.
+* 단계 6 (상담 결과 데이터 가공 및 저장) : 수집된 상담 결과 정보는 데이터베이스 저장 형식에 맞추어 가공된 후, 전체 대화 내용과 요약 내용, LLM으로부터 추출한 위기 정보 및 욕구 정보를 포함하여 데이터베이스에 저장된다.
+* 단계 7 (상담 결과 통계 조회) : 관리자는 저장된 상담 결과를 바탕으로 심층 상담 대상자 비율, 상담 불가자 비율, 위기 및 욕구 정보의 통계를 시스템에서 실시간으로 확인할 수 있다.
+
+
+
+
+   3. 동작 규칙
+관리자 웹 서비스 기능을 위한 동작 규칙은 다음과 같다.
+* 관리자 계정의 ID format은 5~20자의 영문 소문자, 숫자, 특수기호( _ ), ( - ) 만 가능하고, 최소 하나의 알파벳을 포함한다.
+* 관리자 계정의 비밀번호는 8~16자의 영문 대/소문자, 숫자, 특수문자를 사용하고, 단방향 hash함수를 거쳐서 DB에 저장한다.
+* 질문 셋에는 최소 1개의 질문을 등록해야 한다.
+* 상담을 시작하기 전에 최소한 1명의 상담 대상자와 질문 셋을 선택해야 한다.
+* 취약 계층의 인적 사항에는 이름, 성별, 생년월일, 주소 정보가 등록 되어야 한다.
+* 위기 정보의 분류는 {요금체납, 주거위기, 고용위기, 급여/서비스 탈락 및 미이용, 긴급상황 위기, 건강위기, 에너지위기, 기타}이고, 욕구 정보의 분류는 {안전, 건강, 일상생활유지, 가족관계, 사회적 관계, 경제, 교육, 고용, 생활환경, 법률 및 권익보장, 기타}로 한정한다.
+* AI 보이스 봇에 문제가 발생하여 상담이 불가능할 경우에는 웹 서비스에서 자체적으로 상담 불가로 기록을 한다.
+* 상담을 진행하고 있는 도중에는 추가적인 상담을 진행할 수 없다.
+
+
+   4. 가정(Assumptions)
+관리자 웹 서비스 기능을 위한 가정은 다음과 같다.
+* 시스템은 웹 서비스로 제공되며 인터넷 연결이 안정적이라고 가정한다.
+* 관리자는 시스템 사용 방법을 기본적으로 숙지하고 있다고 가정한다.
+* AI 보이스 봇은 외부 시스템으로 정상적으로 작동하며 장애 발생 빈도가 낮다고 가정한다.
+* 데이터베이스는 고가용성을 제공하며 데이터 손실이 없다고 가정한다.
+* 모든 상담 대상자의 개인정보는 정확하고 최신 상태로 유지된다고 가정한다.
+* AI 보이스 봇이 상담 대상자에게 전달하는 질문과 예상 답변은 사전에 충분히 검증되었다고 가정한다.
+* 시스템 운영 환경에서 정기적인 유지보수와 보안 업데이트가 수행된다고 가정한다.
+* 2. 기술 설계
+DB 스키마
+// 계정 DB(MySQL)
+CREATE TABLE Account(
+        id VARCHAR PRIMARY KEY, //관리자 식별 ID
+        user_id VARCHAR UNIQUE NOT NULL, //관리자 계정 ID
+        is_root INT NOT NULL, //루트관리자 여부
+        is_approved INT NOT NULL //승인 여부
+        password VARCHAR NOT NULL, //비밀번호(Hash 암호화)
+        phone_number VARCHAR, //관리자 전화번호
+        email VARCHAR //관리자 이메일
+);
+
+// 취약 계층 DB(NoSQL)
+{
+ "user_id": "string",            // 취약계층 ID (PK)
+ "name": "string",               // 이름
+ "gender": "string",             // 성별 ("M" or "F")
+ "birth_date": "string",         // 생년월일 (YYYY-MM-DD)
+ "phone_number": "string",       // 전화번호 (010-xxxx-xxxx)
+
+ "address": {
+   "state": "string",            // 시/군
+   "city": "string",             // 구/읍/면/리
+   "address1": "string",         // 도로명 주소
+   "address2": "string"          // 상세 주소 (동/호수 등)
+ },
+
+ "vulnerabilities": {
+   "summary": "string",          // 취약 정보 요약
+
+   "risk_list": [                // 위기 정보 리스트
+     {
+       "risk_type": [int],       // 위기 정보 유형 코드 리스트
+       "content": "string"       // 위기 정보 상세 설명
+     }
+   ],
+
+   "desire_list": [              // 욕구 정보 리스트
+     {
+       "desire_type": [int],     // 욕구 정보 유형 코드 리스트
+       "content": "string"       // 욕구 정보 상세 설명
+     }
+   ]
+ }
+}
+
+// 질문 DB(NoSQL)
+{
+        "questions_id": "string", // 질문 set 넘버
+        "time": timestamp //생성일자
+        "title": "string", // 시나리오 제목
+
+        //질문 리스트
+        "question_list":[
+                {
+                        "text": "string", //질문 내용
+                        "expected_answer": [
+                                {
+                                        "text": "string" //예상 답변 내용
+                                        "response_type_list": [
+                                                {
+                                                        "response_type" : int //답변(위기, 욕구) 타입
+                                                        "response_index" : int //답변 코드
+                                                },
+                                                ...
+                                        ]
+                                },
+                        ]
+                }
+        ]
+}        
+
+// 상담 DB(NoSQL)
+{
+ "id": "string",                  // 상담 문서 ID
+ "account_id": "string",          // 자동 상담을 실행한 관리자 ID
+ "s_index": 3,                    // 상담 회차 (int)
+ "v_id": "string",                // 취약 계층 ID
+ "q_id": "string",                // 질문 세트 ID
+ "time": "timestamp",            // 상담 시작 시각
+ "runtime": "timestamp",         // 상담 소요 시간 (또는 종료 시각)
+
+ "overall_script": "string",      // 전체 대화 스크립트
+ "summary": "string",             // 상담 요약
+
+ "result": 1,                     // int: 0 = 상담 불가, 1 = 필요 없음, 2 = 상담 필요
+ "fail_code": 0,                  // int: 0 = 정상, >0 = 실패 사유 코드
+ "need_human": 0,                 // int: 0 = 필요 없음, 1 = 요청, 2 = 위기 심각
+
+        //상담 결과 : previous - delete + new
+ "result_vulnerabilities": {
+                //위기 정보 리스트
+   "risk_list": [
+     {
+       "risk_index_list": [int, ...], // 위기 항목 인덱스 리스트
+       "content": "string" // 위기 설명
+     },
+     ...
+   ],
+   
+   //욕구 정보 리스트
+   "desire_list": [
+     {
+       "desire_index_list": [int, ...], // 욕구 항목 인덱스 리스트
+       "content": "string" // 욕구 설명
+     },
+     ...
+   ],
+   
+   //위기 정보의 항목별 개수(risk_index_list의 원소의 합)
+   "risk_index_count": {
+     "1": int, // key: 인덱스, value: 개수
+     "2": int,
+     ...
+   },
+   
+   //욕구 정보의 항목별 개수(desire_index_list의 원소의 합)
+   "desire_index_count": {
+     "1": int, // key: 인덱스, value: 개수
+     "2": int,
+     ...
+   }
+ },
+
+        //기존 취약 정보 리스트에서 삭제된 취약 정보
+ "delete_vulnerabilities": {
+   "risk_list": [
+     {
+       "risk_index_list": [int, ...],
+       "content": "string"
+     },
+     ...
+   ],
+   "desire_list": [
+     {
+       "desire_index_list": [int, ...],
+       "content": "string"
+     },
+     ...
+   ],
+   "risk_index_count": {
+     "1": int,
+     "2": int,
+     ...
+   },
+   "desire_index_count": {
+     "1": int,
+     "2": int,
+     ...
+   }
+ },
+
+ //새롭게 추가된 취약정보
+ "new_vulnerabilities": {
+   "risk_list": [
+     {
+       "risk_index_list": [int, ...],
+       "content": "string"
+     },
+     ...
+   ],
+   "desire_list": [
+     {
+       "desire_index_list": [int, ...],
+       "content": "string"
+     },
+     ...
+   ],
+   "risk_index_count": {
+     "1": int,
+     "2": int,
+     ...
+   },
+   "desire_index_count": {
+     "1": int,
+     "2": int,
+     ...
+   }
+ }
+}
+
+//상담회차 DB(MySQL)
+CREATE TABLE ConsultationSession (
+   id INT PRIMARY KEY AUTO_INCREMENT,       // 상담 회차 고유 ID (PK)
+   alias VARCHAR(100) NOT NULL              // 상담 회차 별칭 (ex: 1차 상담, 재상담 등)
+);
+	
+
+기술 스택
+- Backend: Spring Boot 3.5.0, Java 17
+- Database: 
+  - MySQL (계정 관리)
+  - MongoDB (취약 계층, 질문 세트, 상담 이력)
+  - Redis (상담 대기열 관리 및 질문 쿼리)
+- Frontend: Next.js 14
+
+
+
+
+2.1 상담 대상자와 질문 묶음 지정 후 대기열 생성 (MAN_001)
+* 기능 목적
+   * 관리자가 상담 대상자를 검색하고 선택한 후, 질문 세트를 매칭하여 상담 대기열에 등록, 실시간으로 상담 진행 상태를 모니터링, Voice Bot과의 연동을 통한 자동화된 상담 프로세스 관리
+* 입력
+   * 상담 대상자 ID (user_id)
+   * 질문 세트 ID (questions_id)
+* 처리 절차
+   * 관리자 화면에서 상담 대상자 검색 및 선택 후 질문 세트 선택
+      * 검색 조건에 맞는 대상자 필터링
+      * 대상자 목록에서 상담 대상자 선택
+      * 사용 가능한 질문 세트 목록 조회
+      * 상담 목적에 맞는 질문 세트 선택
+   * 선택된 대상자-질문 세트 매칭 정보를 Redis 대기열에 저장
+      * 각 대상자마다 하나의 queue_id 생성 (UUID)
+      * Redis의 "waiting_queue" 리스트에 등록 (QueueItem)
+      * 질문 세트는 questions:{questionsId} 키로 Redis에 캐싱 (중복 방지)
+      * 각 항목은 다음 상태로 초기화: state = "WAITING"
+* 출력
+   * 대기열 등록 결과(성공/실패)
+* 주요 데이터 스키마
+//취약 계층 조건 스키마
+{
+  "name": "string"
+  "ageRange": "string"
+  "location": "string"
+  "vulnerabilityType": "string"
+}
+
+
+//취약 계층 조회 결과 스키마
+{
+  "vulnerables": [
+    {
+      "id": "string",
+      "name": "string",
+      "age": "integer",
+      "location": "string",
+      "vulnerabilityTypes": ["string"]
+    }
+  ]
+}
+// Redis 대기열 스키마
+{
+  "queue_id": "string",
+  "vulnerable_id": "string",
+  "questions_id": "string",
+  "state": "WAITING | IN_PROGRESS | COMPLETED | FAILED",
+  "created_time": "timestamp",
+  "start_time": "timestamp",
+  "end_time": "timestamp"
+}
+// Redis 질문 세트 캐시 스키마
+{
+  "questions_id": "string",
+  "title": "string",
+  "flow": [
+            {
+      "text": "string",
+      "expected_response": [
+        {
+          "text": "string",
+          "response_type_list": [
+            {
+              "response_type": "integer",
+              "response_index": "integer"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "cached_at": "timestamp"
+}
+* API
+# 상담 대상자 검색
+GET /api/call/vulnerable/search
+Request:
+{
+  name: "string"
+  ageRange: "string"
+  location: "string"
+  vulnerabilityType: "string"
+}
+Response:
+{
+  "vulnerables": [
+    {
+      "id": "string",
+      "name": "string",
+      "age": "integer",
+      "location": "string",
+      "vulnerabilityTypes": ["string"]
+    }
+  ]
+}
+
+
+# 대기열 등록
+POST /api/call/queue/batch
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{
+  "vulnerableIds": ["string"],
+  "questionsId": "string"
+}
+Response:
+{
+  "success": "boolean",
+  "queueIds": ["string"]
+}
+* 예제코드
+상담 대상자를 추가할 시 조건을 검색 후 반환
+//API 엔드포인트
+@GetMapping("/search")
+public ResponseEntity<Map<String, Object>> searchVulnerables(VulnerableSearchRequest request) {
+    List<VulnerableResponse> result = vulnerableService.search(request);
+    return ResponseEntity.ok(Map.of("vulnerables", result));
+}
+//서비스
+List<VulnerableResponse> search(VulnerableSearchRequest request)        전체 대상자를 검색 조건에 따라 필터링 후 반환
+boolean matches(Vulnerable v, VulnerableSearchRequest r)        대상자와 요청 조건이 일치하는지 boolean 판단
+VulnerableResponse toResponse(Vulnerable v)        도메인 객체 → 응답 DTO로 매핑
+프론트엔드로 부터 취약 계층 id리스트와 질문 id를 입력 받고, Redis에 대기열 등록 및 질문 캐시
+//API 엔드포인트
+@PostMapping("/batch")
+public ResponseEntity<?> registerBatch(@RequestBody QueueBatchRequest request) {
+    try {
+        List<String> queueIds = redisService.registerBatchToQueue(request.getVulnerableIds(), request.getQuestionsId());
+        return ResponseEntity.ok(Map.of("success", true, "queueIds", queueIds));
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "message", e.getMessage()));
+    }
+}
+
+
+//서비스
+public List<String> registerBatchToQueue(List<String> vulnerableIds, String questionsId)
+1. Redis에 vulnerableIds에서 데이터를 하나씩 조회해서 Redis 대기열에 저장
+2. Redis에 질문 세트를 Cache함
+예외처리(JSON 파싱 오류와 서버 오류에 대한 Spring Boot 예제 코드)
+@ControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(JsonProcessingException.class)
+    public ResponseEntity<String> handleJson(JsonProcessingException e) {
+        return ResponseEntity.badRequest().body("JSON 파싱 오류: " + e.getMessage());
+    }
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleException(Exception e) {
+        return ResponseEntity.status(500).body("서버 오류: " + e.getMessage());
+    }
+}
+* 예외처리
+   * 잘못된 입력 값 (빈 리스트, null 등)
+      * 발생 위치: QueueBatchRequest 또는 Controller 단
+      * 예외 타입: MethodArgumentNotValidException, IllegalArgumentException
+      * 처리: 400 Bad Request + "입력값이 유효하지 않습니다" 메시지
+   * Redis 캐시 저장 실패
+      * 발생 위치: RedisService.registerBatchToQueue()
+      * 예외 타입: RedisConnectionFailureException, JsonProcessingException
+      * 처리: 503 Service Unavailable 또는 500 Internal Server Error
+      * 메시지: "Redis 저장 중 오류가 발생했습니다"
+   * 질문 세트 ID가 존재하지 않음 (캐시 or DB 조회 실패)
+      * 예외 타입: NoSuchElementException
+      * 처리: 404 Not Found
+      * 메시지: "해당 질문 세트가 존재하지 않습니다"
+
+
+
+
+
+
+2.2 상담 결과 저장 (MAN_002)
+* 기능 목적
+   * AI보이스 봇으로부터 상담 완료 데이터를 받아 DB에 저장한다.
+* 입력
+   * 상담 결과 데이터(id, accout_id, s_index, v_id, q_id, time, runtime, overall_script, result_vulnerabilities, delete_vulnerabilities, new_vulnerabilities)
+* 처리 절차
+   * Redis 대기열에 저장이 완료되면 상담을 시작함
+      * POST /api/call/start 호출하여 대기열 전체에 대해 Voice Bot 전송 시작
+      * 상태가 "WAITING"인 항목에 대해서만 처리
+      * 상담 진행 화면으로 리다이렉트
+   * AI 보이스봇이 상담 가능 상태가 되면 대기열에서 순차적으로 상담 대상자 정보 전달
+      * Bot 상태가 “idle”이면 Redis에서 다음 대상자 pop
+      * Bot에 대상자 정보 + 질문 세트를 REST로 전달
+      * Bot → Spring 서버로 결과 콜백
+   * AI 보이스봇 API로 결과 수신
+   * 결과 데이터 유효성 검증
+   * DB 스키마에 맞게 데이터 변환 후 저장
+   * 상담 대상자 상태 업데이트
+* 출력
+   * 상담 시작 시 상담 진행 페이지로 리다이랙트
+   * 저장 성공 여부
+* 주요 데이터 스키마
+//콜봇 request 스키마
+{
+        "name": "string",
+        "phone": "string",
+        "gender": "M|F",
+        "birth_date": "date(yyyy-mm-dd)",
+        "address":{
+                "state": "string(시/군)"
+                "city": "string(구/읍/면/리)"
+                "address1": "string(도로명 주소)"
+                "address2": "string(상세 주소)" 
+        },
+        "question_list":[
+                {
+                        "text": "string",
+                        "expected_answer": [
+                                {
+                                        "text": "string"
+                                        "response_type_list": [
+                                                {
+                                                        "response_type" : int
+                                                        "response_index" : int
+                                                },
+                                                ...
+                                        ]
+                                },
+                        ]
+                }
+        ]
+        "vulnerabilities": [
+                "risk_list": [
+                        {
+                                "risk_index_list": [int,..]
+                                "content": "string" 
+                        },
+                        ...
+                ]
+                "desire_list": [
+                        {
+                                "desire_type": [int, ..]
+                                "content": "string" 
+                        }
+                        ...
+                ]
+        ]
+}
+
+
+//respond 스키마
+{
+  "overall_script": "string",
+  "summary": "string",
+  "result": int,                           
+  "fail_code": int,                       
+  "need_human": int,
+  "runtime": "timestamp",
+  "result_vulnerabilities": {
+    "risk_list": [
+      {
+        "risk_index_list": [int, ...],
+        "content": "string"
+      },
+      ...
+    ],
+    "desire_list": [
+      {
+        "desire_index_list": [int, ...],
+        "content": "string"
+      },
+      ...
+    ],
+    "risk_index_count": {
+      "1": int,
+      "2": int,
+      ...
+    },
+    "desire_index_count": {
+      "1": int,
+      "2": int,
+      ...
+    }
+  },
+
+
+  "delete_vulnerabilities": {
+    "risk_list": [
+      {
+        "risk_index_list": [int, ...],
+        "content": "string"
+      },
+      ...
+    ],
+    "desire_list": [
+      {
+        "desire_index_list": [int, ...],
+        "content": "string"
+      },
+      ...
+    ],
+    "risk_index_count": {
+      "1": int,
+      "2": int,
+      ...
+    },
+    "desire_index_count": {
+      "1": int,
+      "2": int,
+      ...
+    }
+  },
+
+
+  "new_vulnerabilities": {
+    "risk_list": [
+      {
+        "risk_index_list": [int, ...],
+        "content": "string"
+      },
+      ...
+    ],
+    "desire_list": [
+      {
+        "desire_index_list": [int, ...],
+        "content": "string"
+      },
+      ...
+    ],
+    "risk_index_count": {
+      "1": int,
+      "2": int,
+      ...
+    },
+    "desire_index_count": {
+      "1": int,
+      "2": int,
+      ...
+    }
+  }
+}
+
+
+* API
+# 상담 시작
+POST /api/call/start
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+
+# SSE 연결 설정
+GET /api/call/sse
+Accept: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+Authorization: Bearer {jwt_token}
+Response:
+{
+  "event": status
+        "data": {
+          "waiting": int,
+          "inProgress": int,
+          "completed": int,
+          "failed": int
+          "details": [
+            {
+              "vulnerableId": "string",
+              "state": "WAITING|IN_PROGRESS|COMPLETED|FAILED",
+              "note": "string"
+            },
+            ...
+          ]
+        }
+}
+* 예제 코드
+대기열 등록 완료 후 상담 시작
+//API 엔드포인트
+@PostMapping("/start")
+public ResponseEntity<Void> startAllCalls() {
+    callQueueProcessor.processAllWaitingCallsAsync(); // 비동기 상담 시작
+    return ResponseEntity.status(HttpStatus.SEE_OTHER)
+            .location(URI.create("/dashboard/consultations/status")) // 프론트엔드로 리다이렉트
+            .build();
+}
+//서비스
+@Async
+public void processAllWaitingCallsAsync()
+1. 최신 상담 회차 조회 
+2. 콜봇이 상담 가능한 상태인지 확인
+3. Redis에 WAITING 상태인 element를 하나씩 호출하여 상담 진행
+4. 상담 완료 후 결과를 상담 DB에 저장
+
+
+
+
+SSE 연결을 하여 일정 간격으로 상담 진행상황 전송
+//API 엔드포인트
+@GetMapping(value = "/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+public SseEmitter streamEvents() {
+    SseEmitter emitter = new SseEmitter(0L); // 무제한 유지
+    monitoringService.register(emitter);
+    return emitter;
+}
+
+
+public void register(SseEmitter emitter)        SSE 클라이언트를 emitter 목록에 등록하고 종료 이벤트 핸들링
+private void pushUpdates()        Redis에서 상담 상태 집계 → 전체 및 상세 상태를 모든 SSE 클라이언트에 전송
+@PostConstruct startBroadcast()        서비스 시작 시 주기적 상태 전송 스케줄러 실행
+
+
+* 예외 처리
+   * 콜봇 응답 JSON 파싱 오류
+      * 발생 위치: @RequestBody 또는 ObjectMapper.readValue()
+      * 예외 타입: JsonProcessingException, HttpMessageNotReadableException
+      * 처리: 400 Bad Request
+      * 메시지: "콜봇 JSON 형식 오류"
+   * 필수 필드 누락 (유효성 검증)
+      * 예외 타입: MethodArgumentNotValidException
+      * 처리: 400 Bad Request
+      * 메시지: "필수 입력값 누락: 필드명"
+   * DB 저장 실패 (JPA or JDBC 에러)
+      * 예외 타입: DataAccessException, CounselingSaveException
+      * 처리: 500 Internal Server Error
+      * 메시지: "상담 결과 저장 중 서버 오류"
+   * Redis 상담 상태 업데이트 실패
+      * 예외 타입: RedisConnectionFailureException
+      * 처리: 503 Service Unavailable
+      * 메시지: "Redis 연결 실패: 상담 상태 업데이트 불가"
+
+
+
+
+
+
+2.3 상담 결과 통계 (MAN_003)
+* 기능 목적
+   * 상담 결과 데이터를 집계하여 심층 상담 대상자 비율, 상담 불가자 비율 등 다양한 통계를 생성하고, 관리자가 쉽게 조회할 수 있도록 테이블과 그래프로 제공한다.
+* 입력
+   * 없음 (관리자가 조회 요청 시)
+   * (필터 조건 있을 경우) 상담 회차등 선택 가능
+* 처리 절차
+   * 상담 결과 DB에서 전체 혹은 상담 회차별 통계 집계 요청
+   * 심층 상담 대상자 수, 상담 불가자 수, 비대상자 수 등 통계 집계
+   * 위기 정보 및 욕구 정보별 집계
+   * 집계된 통계를 JSON 형태로 구성하여 반환
+* 출력
+   * 심층 상담 대상자 수, 비대상자 수, 상담 불가자 수, 심층 상담 불필요 인원 수
+   * 상담 요청자 수, 중대 위기 정보 발견자 수
+   * 위기 정보별 카운트 (key: 위기명, value: 정수)
+   * 욕구 정보별 카운트 (key: 욕구명, value: 정수)
+* 주요 데이터 스키마
+//통계 결과 조회 스키마
+{
+        "index": "string" //value : all이면 전체
+}
+//통계 결과 스키마
+{
+        "deep_counseling_target": int,
+        "non_target": int,
+        "counseling_unvailable": int,
+        "no_deep_counseling": int,
+        "request_counseling_count": int,
+        "critical_vulnerability_count": int,
+        "average_counseling_time": timestamp
+        "crisis_info" {
+                "key": int,
+                "key": int,
+                ...
+        },
+        "desire_info" {
+                "key": int,
+                "key": int,
+                ...
+        }
+}
+
+
+* API
+GET /api/consultation-sessions
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Response:{
+        "sessions": [
+    {
+      "id": int,
+      "alias": "string"
+    },
+    {
+      "id": int,
+      "alias": "string"
+    }
+  ]
+}
+
+
+GET /api/statistics
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{
+        "index": "string"
+}
+Response:
+{
+        "deep_counseling_target": int,
+        "non_target": int,
+        "counseling_unvailable": int,
+        "no_deep_counseling": int,
+        "request_counseling_count": int,
+        "critical_vulnerability_count": int,
+        "average_counseling_time": timestamp
+        "crisis_info" {
+                "key": int,
+                "key": int,
+                ...
+        },
+        "desire_info" {
+                "key": int,
+                "key": int,
+                ...
+        }
+}
+
+
+예제 코드
+상담 회차 조회
+@GetMapping
+public ResponseEntity<Map<String, Object>> getAllSessions() {
+    List<ConsultationSession> sessions = sessionService.getAllSessions();
+    return ResponseEntity.ok(Map.of("sessions", sessions));
+}
+
+
+//서비스
+List<ConsultationSession> getAllSessions() 전체 상담 회차 목록 조회
+
+
+통계 결과 조회
+//API 엔드포인트
+@GetMapping
+public ResponseEntity<Map<String, Object>> getStatistics(@RequestParam(defaultValue = "all") String index) {
+    // 서비스로부터 통계 JSON 수신
+    Map<String, Object> stats = statisticsService.aggregateStatistics(index);
+    return ResponseEntity.ok(stats);
+}
+
+
+//서비스
+Map<String, Object> aggregateStatistics(index)        통계 데이터를 집계하여 JSON으로 반환
+
+
+* 예외 처리
+   * index 값이 유효하지 않거나 존재하지 않는 회차
+      * 예외 타입: NoSuchElementException
+      * 처리: 404 Not Found
+      * 메시지: "해당 회차 ID에 대한 통계 정보가 없습니다"
+   * 상담 결과 집계 도중 JSON 변환 오류
+      * 예외 타입: JsonProcessingException
+      * 처리: 500 Internal Server Error
+      * 메시지: "통계 결과 JSON 변환 오류"
+   * 결과 수가 0일 경우 평균 시간 나눗셈 오류 (0 나눗셈)
+      * 예외 타입: ArithmeticException
+      * 처리: 500 Internal Server Error
+      * 메시지: "상담 결과가 없어 평균 시간을 계산할 수 없습니다"
+   * DB 조회 실패 (통계 대상 불러오기 오류)
+      * 예외 타입: DataAccessException, NullPointerException
+      * 처리: 500 Internal Server Error
+      * 메시지: "DB 조회 실패 또는 결과 없음"
+
+
+
+
+2.4 질문 관리 (MAN_004)
+* 기능 목적
+   * AI 상담 시스템에서 사용할 질문 세트를 등록, 수정, 삭제하며 질문 별 예상 답변과 답변 유형을 관리하여 AI 상담의 정확도를 높인다.
+* 입력
+   * 질문 세트 ID (qusetions_id)
+   * 시나리오 제목 (title)
+   * 질문 리스트(flow): 각 질문(text)과 예상 답변 리스트 (expected_response) 포함
+      * 예상 답변: 텍스트, 연결된 위기 및 욕구 정보, 응답 유형
+* 처리 절차
+   * 관리자가 질문 관리 화면에서 신규 질문 세트 등록 또는 기존 질문 세트 수정/삭제 선택
+   * 입력 데이터 검증(필수 필드, 증복, 형식)
+   * 질문 세트 및 질문, 예상 답변 데이터를 DB에 저장 또는 삭제
+* 출력
+   * 저장/수정/삭제 성공 여부 메시지
+   * 질문 세트 목록 조회 시 질문 ID, 제목, 생성일자 반환
+* 주요 데이터 스키마
+// 목록 조회 응답
+{
+  "questions": [
+    {
+      "questions_id": "string",
+      "title": "string",
+      "time": "timestamp"
+    }
+  ]
+}
+
+
+// 개별 질문 세트 응답
+{
+  "questions_id": "string",
+  "title": "string",
+  "time": "timestamp",
+  "question_list": [
+    {
+      "text": "string",
+      "expected_answer": [
+        {
+          "text": "string",
+          "response_type_list": [
+            {
+              "response_type": 1,
+              "response_index": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+
+* API
+// 질문 세트 등록
+POST /api/questions
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{...} // 위 JSON 스키마와 동일
+Response:
+{
+          "success": boolean,
+          "message": "string"
+}
+
+
+// 질문 세트 수정
+PUT /api/questions/{questionsId}
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{...} // 위 JSON 스키마와 동일
+Response:
+{
+  "success": boolean,
+  "message": "string"
+}
+
+
+// 질문 세트 삭제
+DELETE /api/questions/{questionsId}
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{
+        "questionsId" : "string"
+}
+Response:
+{
+  "success": boolean,
+  "message": "string"
+}
+
+
+// 질문 세트 목록 조회
+GET /api/questions
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Response:
+{
+  "questions": [
+    {
+      "questions_id": "string",
+      "title": "string",
+      "time": "timestamp"
+    }
+  ]
+}
+
+
+// 개별 질문 세트 조회
+GET /api/questions/{questionsId}
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{
+        "questionsId" : "string"
+}
+Response:
+{...} // 위 JSON 스키마와 동일
+
+
+* 코드 예제
+//API 엔드포인트
+
+
+// 질문 세트 등록
+@PostMapping
+public ResponseEntity<?> saveQuestion(@RequestBody QuestionSetDto dto) {
+    questionService.save(dto);
+    return ResponseEntity.ok(Map.of("success", true, "message", "질문 세트가 등록되었습니다."));
+}
+
+
+// 질문 세트 수정
+@PutMapping("/{questionsId}")
+public ResponseEntity<?> updateQuestion(@PathVariable String questionsId, @RequestBody QuestionSetDto dto) {
+    questionService.update(questionsId, dto);
+    return ResponseEntity.ok(Map.of("success", true, "message", "질문 세트가 수정되었습니다."));
+}
+
+
+// 질문 세트 삭제
+@DeleteMapping("/{questionsId}")
+public ResponseEntity<?> deleteQuestion(@PathVariable String questionsId) {
+    questionService.delete(questionsId);
+    return ResponseEntity.ok(Map.of("success", true, "message", "질문 세트가 삭제되었습니다."));
+}
+
+
+// 질문 세트 목록 조회
+@GetMapping
+public ResponseEntity<?> getAllQuestions() {
+    return ResponseEntity.ok(Map.of("questions", questionService.getAll()));
+}
+
+
+// 개별 질문 세트 조회
+@GetMapping("/{questionsId}")
+public ResponseEntity<?> getQuestionById(@PathVariable String questionsId) {
+    QuestionSetDto dto = questionService.getById(questionsId);
+    return ResponseEntity.ok(dto);
+}
+
+
+//서비스
+void save(QuestionSetDto dto) 질문 세트 등록
+void update(String questionsId, QuestionSetDto dto) 질문 세트 수정
+void delete(String questionsId) 질문 세트 삭제
+List<QuestionSetDto> getAll() 질문 세트 전체 조회
+QuestionSetDto getById(String questionsId); 질문 세트 단건 조회
+
+
+* 예외 처리
+   * 이미 존재하는 questions_id로 등록 시
+      * 예외 타입: IllegalArgumentException
+      * 처리: 400 Bad Request
+      * 메시지: "이미 존재하는 질문 세트입니다"
+   * 존재하지 않는 questions_id로 수정 또는 삭제 시
+      * 예외 타입: NoSuchElementException
+      * 처리: 404 Not Found
+      * 메시지: "질문 세트를 찾을 수 없습니다"
+   * 입력 형식 오류 (null, 누락, 형식 불일치)
+      * 예외 타입: MethodArgumentNotValidException, JsonProcessingException
+      * 처리: 400 Bad Request
+      * 메시지: "입력값이 유효하지 않습니다" 또는 "JSON 파싱 오류"
+   * DB 저장 실패
+      * 예외 타입: DataAccessException, RuntimeException
+      * 처리: 500 Internal Server Error
+      * 메시지: "질문 세트 저장 중 오류 발생"
+2.5 상담 대상자 관리 (MAN_005)
+* 기능 목적
+   * 상담 대상자의 개인정보를 추가, 수정, 삭제하고 상담 결과로부터 분석된 위기 및 욕구 정보를 조회, 관리하여 체계적인 대상자 관리를 지원한다.
+* 입력
+   * 상담 대상자 ID (user_id)
+   * 이름, 성별, 생년월일, 전화번호, 주소(시/군, 구/읍/면/리, 도로명, 호수)
+   * 위기 정보 및 욕구 정보(상담 분석 결과에서 추출된 내용)
+* 처리 절차
+   * 관리자가 대상자 정보 입력 또는 수정 화면 접근
+   * 입력된 개인정보 및 상담 결과 위기, 욕구 정보 검증
+   * DB에 대상자 정보 추가/수정/삭제 수행
+   * 상담 결과 기반 위기, 욕구 정보 조회 기능 제공
+   * 변경 사항 저장 후 결과 반환
+* 출력
+   * 대상자 정보 조회 시 개인정보 및 위기, 욕구 정보 포함 반환
+   * 처리 성공/실패 메시지
+* 주요 데이터 스키마
+{
+  "user_id": "string",            // 취약계층 ID (PK)
+  "name": "string",               // 이름
+  "gender": "string",             // 성별 ("M" or "F")
+  "birth_date": "string",         // 생년월일 (YYYY-MM-DD)
+  "phone_number": "string",       // 전화번호 (010-xxxx-xxxx)
+
+
+  "address": {
+    "state": "string",            // 시/군
+    "city": "string",             // 구/읍/면/리
+    "address1": "string",         // 도로명 주소
+    "address2": "string"          // 상세 주소 (동/호수 등)
+  },
+
+
+  "vulnerabilities": {
+    "summary": "string",          // 취약 정보 요약
+
+
+    "risk_list": [                // 위기 정보 리스트
+      {
+        "risk_type": [int],       // 위기 정보 유형 코드 리스트
+        "content": "string"       // 위기 정보 상세 설명
+      }
+    ],
+
+
+    "desire_list": [              // 욕구 정보 리스트
+      {
+        "desire_type": [int],     // 욕구 정보 유형 코드 리스트
+        "content": "string"       // 욕구 정보 상세 설명
+      }
+    ]
+  }
+}
+
+
+* API
+// 대상자 등록
+POST /api/vulnerables
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{...} // 위 JSON 스키마와 동일
+Response:
+{
+  "success": boolean,
+  "message": "string"
+}
+
+
+// 대상자 수정
+PUT /api/vulnerables/{userId}
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{...}
+Response:
+{
+  "success": boolean,
+  "message": "string"
+}
+
+
+// 대상자 삭제
+DELETE /api/vulnerables/{userId}
+Authorization: Bearer {jwt_token}
+Request:
+{
+  "userId": "string"
+}
+Response:
+{
+  "success": boolean,
+  "message": "string"
+}
+
+
+// 대상자 일괄 삭제
+DELETE /api/vulnerables/batch
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+Request:
+{
+  "userIds": ["string", ...]
+}
+
+
+// 대상자 목록 조회
+GET /api/vulnerables
+Authorization: Bearer {jwt_token}
+Response:
+{
+  "vulnerables": [
+    {
+      "user_id": "string",
+      "name": "string",
+      "age": int,
+      "gender": "string",
+      "location": "string"
+      "risk_list_size": int,
+            "desire_list_size": int
+    }
+  ]
+}
+
+
+// 대상자 상세 조회
+GET /api/vulnerables/{userId}
+Authorization: Bearer {jwt_token}
+Request:
+{
+  "userId": "string"
+}
+Response:
+{...} // 위 JSON 스키마와 동일
+
+
+* 코드 예제
+// API 엔드포인트
+
+
+// 취약 계층 등록
+@PostMapping
+public ResponseEntity<?> register(@RequestBody VulnerableDto dto) {
+    vulnerableService.save(dto);
+    return ResponseEntity.ok(Map.of("success", true, "message", "상담 대상자가 등록되었습니다."));
+}
+
+
+// 취약 계층 수정
+@PutMapping("/{userId}")
+public ResponseEntity<?> update(@PathVariable String userId, @RequestBody VulnerableDto dto) {
+    vulnerableService.update(userId, dto);
+    return ResponseEntity.ok(Map.of("success", true, "message", "상담 대상자 정보가 수정되었습니다."));
+}
+
+
+// 취약 계층 삭제
+@DeleteMapping("/{userId}")
+public ResponseEntity<?> delete(@PathVariable String userId) {
+    vulnerableService.delete(userId);
+    return ResponseEntity.ok(Map.of("success", true, "message", "상담 대상자가 삭제되었습니다."));
+}
+
+
+// 취약 계층 목록 조회
+@GetMapping
+public ResponseEntity<?> getAll() {
+    return ResponseEntity.ok(Map.of("vulnerables", vulnerableService.getAll()));
+}
+
+
+// 취약 계층 상세 조회
+@GetMapping("/{userId}")
+public ResponseEntity<?> getById(@PathVariable String userId) {
+    VulnerableDto dto = vulnerableService.getById(userId);
+    return ResponseEntity.ok(dto);
+}
+
+
+// 서비스 메서드
+void save(VulnerableDto dto) 상담 대상자 등록
+void update(String userId, VulnerableDto dto) 상담 대상자 수정
+void delete(String userId) 상담 대상자 삭제
+List<VulnerableDto> getAll() 전체 대상자 목록 조회
+VulnerableDto getById(String userId) 특정 대상자 상세 조회
+
+
+* 예외 처리
+   * 이미 존재하는 user_id로 등록 시
+      * 예외 타입: IllegalArgumentException
+      * 처리: 400 Bad Request
+      * 메시지: "이미 존재하는 대상자입니다"
+   * 존재하지 않는 user_id로 수정 또는 삭제 시
+      * 예외 타입: NoSuchElementException
+      * 처리: 404 Not Found
+      * 메시지: "대상자를 찾을 수 없습니다"
+   * 입력 형식 오류 (null, 누락, 형식 불일치)
+      * 예외 타입: MethodArgumentNotValidException, JsonProcessingException
+      * 처리: 400 Bad Request
+      * 메시지: "입력값이 유효하지 않습니다" 또는 "JSON 파싱 오류"
+   * DB 저장 실패 또는 삭제 실패
+      * 예외 타입: DataAccessException, RuntimeException
+      * 처리: 500 Internal Server Error
+      * 메시지: "상담 대상자 정보 처리 중 오류가 발생했습니다"
+
+
+2.6 관리자 로그인 기능 (MAN_006)
+
+
+* 기능 목적: 관리자 인증 및 권한 관리
+* 입력
+   * user_id (5~20자 영문 소문자, 숫자, _, - 가능)
+   * password (8~16자 영문 대소문자, 숫자, 특수문자)
+* 처리 절차
+   * 입력 유효성 검사
+   * DB에서 user_id 조회 및 저장된 Hash화 비밀번호 비교
+   * 인증 성공 시 루트 관리자 or 관리자에 맞는 JWT 토큰 생성 및 반환
+   * 실패 시 에러 메시지 반환
+   * 인증은 성공했지만 승인 받지 못했다면(is_approved = 0), 인증 대기 중이라는 안내 페이지로 이동
+* 출력
+   * JWT 토큰 및 관리자 정보
+* 주요 데이터 스키마
+//계정 RDB
+CREATE TABLE Account(
+        id VARCHAR PRIMARY KEY,
+        user_id VARCHAR UNIQUE NOT NULL,
+        is_root INT NOT NULL,
+        is_approved INT NOT NULL
+        password VARCHAR NOT NULL,
+        phone_number VARCHAR,
+        email VARCHAR
+);
+
+
+* API
+// 관리자 로그인
+POST /api/auth/login
+Content-Type: application/json
+Request:
+{
+  "user_id": "string",
+  "password": "string"
+}
+Response:
+{
+  "success": boolean,
+  "token": "string",
+  "account": {
+    "user_id": "string",
+    "is_root": boolean,
+    "email": "string",
+    "phone_number": "string"
+  }
+}
+
+
+* 코드 예제
+// API 엔드포인트
+@PostMapping("/login")
+public void login(@RequestBody LoginRequest request, HttpServletResponse response) throws IOException {
+    try {
+        AccountDto account = authService.authenticate(request.getUserId(), request.getPassword());
+
+
+        if (!account.isApproved()) {
+            // 승인되지 않은 경우 → 승인 안내 페이지로 리다이렉트
+            response.sendRedirect("/approval-pending");  // 프론트에서 이 경로에 해당 페이지 구성 필요
+            return;
+        }
+
+
+        String token = jwtProvider.generateToken(account);
+
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(new ObjectMapper().writeValueAsString(Map.of(
+            "success", true,
+            "token", token,
+            "account", account
+        )));
+    } catch (AuthenticationException e) {
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType("application/json");
+        response.getWriter().write(new ObjectMapper().writeValueAsString(Map.of(
+            "success", false,
+            "message", "아이디 또는 비밀번호가 일치하지 않습니다"
+        )));
+    }
+}
+
+
+// 서비스
+AccountDto authenticate(String userId, String rawPassword)
+1. DB에서 user_id로 계정 조회
+2. 저장된 해시 비밀번호와 비교
+3. 인증 성공 시 AccountDto 반환
+
+
+* 예외 처리
+   * 이미 존재하는 user_id로 등록 시
+      * 예외 타입: IllegalArgumentException
+      * 처리: 400 Bad Request
+      * 메시지: "이미 존재하는 대상자입니다"
+   * 존재하지 않는 user_id로 수정 또는 삭제 시
+      * 예외 타입: NoSuchElementException
+      * 처리: 404 Not Found
+      * 메시지: "대상자를 찾을 수 없습니다"
+   * 입력 형식 오류 (null, 누락, 형식 불일치)
+      * 예외 타입: MethodArgumentNotValidException, JsonProcessingException
+      * 처리: 400 Bad Request
+      * 메시지: "입력값이 유효하지 않습니다" 또는 "JSON 파싱 오류"
+   * DB 저장 실패 또는 삭제 실패
+      * 예외 타입: DataAccessException, RuntimeException
+      * 처리: 500 Internal Server Error
+      * 메시지: "상담 대상자 정보 처리 중 오류가 발생했습니다"
+   * 로그인 실패 (잘못된 아이디 또는 비밀번호)
+      * 예외 타입: AuthenticationException
+      * 처리: 401 Unauthorized
+      * 메시지: "아이디 또는 비밀번호가 일치하지 않습니다"
+   * 승인되지 않은 관리자 로그인 시도
+      * 예외 타입: UnapprovedAccountException
+      * 처리: 403 Forbidden 또는 302 Redirect
+      * 메시지: "관리자 승인 대기 중입니다" 또는 승인 대기 페이지로 리다이렉트
+
+
+3. UI 설계
+3.1. 로그인 화면 상세 설계
+  
+
+* 화면 명
+   * 로그인(/login)
+* 화면 목적
+   * 관리자가 시스템에 안전하게 로그인하여 관리 기능에 접근할 수 있도록 한다.
+* UI 요소
+
+
+UI 요소
+	타입
+	제약조건 및 유효성 검사
+	아이디 입력 필드
+	텍스트 입력
+	5~20자, 영문 소문자, 숫자, 특수기호('_', '-')만 가능, 최소 하나 이상의 알파벳 포함
+	비밀번호 입력 필드
+	비밀번호 입력
+	8~16자, 영문 대/소문자, 숫자, 특수문자 포함, 최소 2가지 종류 조합 필요
+	로그인 버튼
+	버튼
+	입력값 유효성 만족 시 활성화, 클릭 시 로그인 시도
+	에러 메시지 영역
+	텍스트 표시
+	로그인 실패 시 원인 메시지 출력
+	* 처리 절차
+   1. 사용자가 ID와 Password를 입력
+   2. 입력 값 유효성 검사 수행 (형식 및 필수 여부)
+   3. 로그인 버튼 활성화
+   4. 로그인 버튼 클릭 시 POST /api/auth/login API호출
+   5. 서버 응답 처리
+      * 인증 성공 & 계정 승인 대기 시 승인 대기 화면으로 이동
+      * 인증 실패 시 에러 메시지 표시
+* 예외 처리
+   * 입력값 미충족: 로그인 버튼 비활성화
+   * 인증 실패: 에러 메시지 “아이디 또는 비밀번호가 올바르지 않습니다/” 표시
+   * 서버 오류: 에러 메시지 “서버 오류가 발생했습니다. 잠시 후 다시 시도하세요.” 표시
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.2. 승인 대기 중 화면 상세 설계
+  
+
+* 화면 명
+   * 승인 대기 중 (/approval-pending)
+* 화면 목적
+   * 관리자의 계정 승인이 완료될 때까지 대기 상태를 안내한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	아이콘
+	이미지/아이콘
+	모래시계 등 승인 대기 상태를 시각적으로 표현
+	제목
+	텍스트
+	“승인 대기 중” 문구
+	안내 문구
+	텍스트
+	“계정 승인이 완료될 때까지 기다려 주세요.” 안내 메시지
+	로그인 페이지로 돌아가기 링크
+	링크
+	로그인 페이지로 이동
+	* 처리 절차
+   1. 로그인 시 계정 상태가 승인 대기인 경우 이 화면 표시
+   2. “로그인 페이지로 돌아가기”버튼 클릭 시 로그인 화면으로 이동
+   3. 계정 승인 완료 시 자동 대시보드 화면으로 리다이렉션
+
+
+3.3. 회원가입 화면 상세 설계
+  
+
+* 화면 명
+   * 회원가입 (/register)
+* 화면 목적
+   * 새로운 관리자를 등록 신청한다.
+* 주요 UI 요소
+항목
+	타입
+	제약조건 및 유효성 검사
+	아이디 입력 필드
+	텍스트 입력
+	5~20자, 영문 소문자/숫자/_/-만 허용, 최소 1개 이상 알파벳 포함
+	이메일 입력 필드
+	텍스트 입력
+	이메일 형식 유효성 검사
+	전화번호 입력 필드
+	텍스트 입력
+	정규식 기반 전화번호 형식 검사
+	비밀번호 입력 필드
+	비밀번호 입력
+	8~16자, 영문 대/소문자, 숫자, 특수문자 포함, 최소 2종류 조합
+	비밀번호 확인 필드
+	비밀번호 입력
+	첫 번째 비밀번호와 일치 여부 검사
+	가입 요청 버튼
+	버튼
+	모든 입력값 유효성 충족 시 활성화
+	로그인 페이지로 돌아가기 링크
+	링크
+	로그인 페이지로 이동
+	* 처리 절차
+   1. 사용자가 각 입력 필드에 값 입력
+   2. 입력값 유효성 검사
+      * ID 형식, 이메일 포맷, 전화번호 형식, 비밀번호 형식 및 일치 여부 검사
+   3. 유효하지 않은 필드가 있을 경우, 해당 입력 아래 오류 메시지 표시 및 가입 요청 버튼 비활성화
+   4. 모든 입력 유효 시 가입 요청 버튼 활성화
+   5. 가입 요청 버튼 클릭 시 POST /api/account/register API 호출
+   6. 가입 성공 시 “가입 요청이 완료되었습니다.” 메시지 표시 및 로그인 화면 이동
+   7. 실패 시 각 필드별 오류 메시지 표시
+
+
+
+
+3.4. 대시보드 화면 상세 설계
+  
+
+
+
+* 화면 명
+   * 대시보드 (/dashboard)
+* 화면 목적
+   * 관리자에게 주요 상담 현황과 통계 정보를 시각적으로 제공하여 빠른 현황 파악과 의사 결정을 지원한다.
+* 주요 UI 요소
+
+
+구성 요소
+	타입
+	설명
+	총 취약 계층 수
+	숫자 카드
+	전체 등록된 취약 계층 인원 수 표시
+	금일 상담 건수
+	숫자 카드
+	오늘 완료된 상담 건수 표시
+	누적 상담 건수
+	숫자 카드
+	누적 완료된 상담 건수 표시
+	상담 결과 비율 비율 차트
+	차트
+	상담 필요/불필요/상담 불가 등 비율 표시
+	주요 위기 유형 통계 차트
+	차트
+	위기 유형별 상담 건수 통계 표시
+	주요 욕구 유형 통계 차트
+	차트
+	욕구 유형별 상담 건수 통계 표시
+	상세 통계 페이지 이동 버튼
+	버튼
+	상세 통계 화면으로 이동
+	* 처리 절차
+   1. 대시보드 페이지 진입 시 GET /api/dashboard/summary API 호출
+   2. 서버에서 전체 취약 계층 수, 오늘 상담 건수, 누적 상담 건수, 상담 결과 분포, 위기/욕구 유형별 통계 데이터 반환
+   3. 받은 데이터를 차트 및 숫자 형태로 화면에 표시
+   4. 각 차트 클릭 시 상세 통계 화면으로 이동 가능
+* UI 동작
+   1. 숫자와 차트는 API 데이터를 기반으로 실시간 렌더링
+   2. 오류 발생 시 “데이터 로드 실패” 메시지 표시
+   3. 상세 통계 버튼 클릭 시 상세 통계 화면으로 라우팅
+* 예외 처리
+   1. API 호출 실패 시 오류 메시지 표시 및 재시도 안내
+   2. 데이터 비어 있을 경우 0, 빈 차트 표시
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.5. 취약 계층 화면 상세 설계
+  
+
+* 화면 명
+   * 취약 계층 관리 (/dashboard/vulnerable)
+* 화면 목적
+   * 취약 계층의 개인정보를 조회, 검색, 등록, 수정, 삭제하고, 상담 및 위기/욕구 정보를 한눈에 관리한다.
+* 주요 UI 요소
+구성 요소
+	타입
+	설명
+	검색 입력창
+	텍스트 입력
+	이름, 전화번호, ID로 필터링 가능
+	목록 테이블
+	테이블
+	취약 계층 기본 정보, 상담 요약, 위기 및 욕구 상태 표시
+	체크 박스
+	체크 박스
+	목록 행 선택 용
+	선택 삭제 버튼
+	버튼
+	선택된 대상자 일괄 삭제
+	신규 등록 버튼
+	버튼
+	신규 취약 계층 등록 화면 이동
+	작업
+	버튼
+	상세 정보 보기, 수정, 삭제 버튼
+	* 처리 절차
+   1. 페이지 로드 시 전체 취약 계층 목록을 GET /api/vulnerable/list API 호출(페이징 포함)
+   2. 검색어 입력 시 서버에 필터링 요청 GET /api/vulnerable/list?search=키워드
+   3. 체크박스 선택 시 ‘선택 삭제’ 버튼 활성화
+   4. ‘선택 삭제’ 버튼 클릭 시 삭제 확인 모달 표시
+   5. 삭제 확인 시 DELETE /api/vulnerable/batch API 호출 → 목록 갱신
+   6. 작업 컬럼 버튼별 동작
+      * 상세보기: 대상자 상세 상담 정보 팝업
+      * 수정: 대상자 수정 화면 팝업
+      * 삭제: 삭제 확인 모달 표시 → 삭제 API 호출 → 목록 갱신
+   7. ‘신규 등록’ 버튼 클릭 시 신규 등록 팝업
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.6. 신규 취약 계층 등록 화면 상세 설계
+  
+
+* 화면 명
+   * 신규 취약 계층 등록 (/dashboard/vulnerable/new)
+* 화면 목적
+   * 신규 취약계층 대상자의 개인정보와 상담 관련 정보를 입력하여 시스템에 등록한다.
+* 주요 UI 요소
+입력 항목
+	타입
+	제약조건 및 설명
+	이름
+	텍스트 입력
+	한글 2~5자, 영문 가능
+	성별
+	버튼
+	남, 여
+	생년월일
+	날짜 선택
+	유효한 날짜
+	전화번호
+	텍스트 입력
+	정규식 기반 전화번호 형식 검증
+	주소
+	텍스트 입력
+	시/군/구, 읍/면/리, 도로명, 상세주소 입력
+	등록하기 버튼
+	버튼
+	입력값 유효성 만족 시 활성화, 클릭 시 등록 API 호출
+	취소 버튼
+	버튼
+	팝업 닫기(등록 취소)
+	* 처리 절차
+   1. 팝업 오픈 시 ID는 시스템에서 자동 생성되어 보여줌
+   2. 사용자가 각 필드에 정보 입력
+   3. 입력값 유효성 실시간 및 제출 전 검사
+   4. 모든 필수 필드 유효 시 등록하기 버튼 활성화
+   5. 등록하기 버튼 클릭 시 POST /api/vulnerable API 호출
+   6. 성공 시 팝업 닫고 목록 새로고침 및 성공 메시지 표시
+   7. 실패 시 해당 필드 또는 공통 오류 메시지 표시
+   8. 닫기 버튼 클릭 시 팝업 닫기
+
+
+
+
+3.7. 취약 계층 상세 정보 조회 화면 상세 설계
+  
+
+* 화면 명
+   * 취약계층 상세 정보(/dashboard/vulnerable/)
+* 화면 목적
+   * 특정 취약계층 대상자의 개인정보, 상담 이력, 위기 및 욕구 정보 등 상세 내용을 보여준다
+* 주요 UI 요소
+UI요소
+	타입
+	설명
+	개인정보 영역
+	텍스트/레이블
+	이름, 성별, 생년월일, 전화번호, 주소 등 기본 정보
+	상담 요약 표시
+	텍스트
+	과거 상담 내용 요약 표시
+	위기 정보 표시
+	텍스트
+	해당 대상자의 위기 정보 표시
+	욕구 정보 표시
+	텍스트
+	해당 대상자의 욕구 정보 표시
+	취소 버튼
+	버튼
+	팝업 닫기
+	* 처리 절차
+   1. 상세 정보 화면 진입 시 GET /api/vulnerable/{user_id} API 호출
+   2. 서버로부터 개인정보, 상담 이력, 위기, 욕구 정보 수신
+   3. 화면에 각 정보 영역별로 표시
+   4. 편집 버튼 클릭 시 수정 화면으로 이동
+   5. 취소 버튼 클릭 시 팝업 닫기
+
+
+3.8. 취약 계층 상세 정보 수정 화면 상세 설계
+  
+
+* 화면 명
+   * 취약계층 정보 수정(/dashboard/vulnerable/{user_id}/edit)
+* 화면 목적
+   * 기존 대상자의 개인정보 및 상담 관련 정보를 수정하여 최신 상태로 유지한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	개인정보 입력 폼
+	텍스트/날짜 선택
+	이름, 성별, 생년월일, 전화번호, 주소 등 기본 정보 편집 가능
+	상담 요약 입력
+	텍스트 영역
+	상담 요약 입력 가능
+	저장 버튼
+	버튼
+	입력값 유효성 만족 시 활성화, 클릭 시 수정 API 호출
+	취소 버튼
+	버튼
+	변경 사항 저장하지 않고 팝업 닫기
+	* 처리 절차
+   1. 수정 화면 진입 시 GET /api/vulnerable/{user_id} API 호출로 기존 데이터 로드
+   2. 사용자 입력 및 편집
+   3. 제출 전 입력 유효성 검사
+   4. 저장 버튼 클릭 시 PUT /api/vulnerable/{user_id} API 호출
+   5. 성공 시 상세 정보 화면으로 이동 및 변경 내용 반영
+   6. 실패 시 오류 메시지 표시
+   7. 취소 버튼 클릭 시 변경 내용 무시하고 상세 정보 화면으로 복귀
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.9. 질문 관리 화면 상세 설계
+  
+
+* 화면 명
+   * 질문 관리 (/dashboard/questions)
+* 화면 목적
+   * AI 상담에 사용할 질문 세트를 조회, 검색, 등록, 수정, 삭제하는 기능을 제공한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	질문 세트 목록
+	테이블
+	질문 세트 ID, 제목, 질문 수, 생성 일자 표시
+	검색 입력창
+	텍스트 입력
+	질문 세트 제목 또는 키워드로 검색 가능
+	체크 박스
+	체크 박스
+	목록 행 선택 용
+	선택 삭제 버튼
+	버튼
+	선택된 질문 일괄 삭제
+	작업
+	버튼
+	상세 보기, 수정, 삭제 버튼
+	신규 등록 버튼
+	버튼
+	새로운 질문 세트 등록
+	* 처리 절차
+   1. 화면 진입 시 GET api/question/list API 호출
+   2. 서버로부터 질문 세트 목록 수신 후 테이블 렌더링
+   3. 검색어 입력 시 서버에 필터링 요청 GET api/question/list/{question_id}
+   4. 체크박스 선택 시 ‘선택 삭제’버튼 활성화
+   5. ‘선택 삭제’ 버튼 클릭 시 삭제 확인 모달 표시
+   6. 삭제 확인 시 DELETE /api/question/batch API 호출 → 목록 갱신
+   7. 작업 컬럼 버튼 별 동작
+      * 상세 보기: 질문 세트 상세 보기 화면 팝업
+      * 수정: 질문 세트 수정 화면 팝업
+      * 삭제: 삭제 확인 모달 표시 → 삭제 API 호출 → 목록 갱신
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.10. 질문 관리 화면 상세 설계
+  
+
+* 화면 명
+   * 신규 질문 세트 등록 (/dashboard/questions/new)
+* 화면 목적
+   * 새로운 질문 세트를 생성하여 AI 상담 시나리오를 관리한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	질문 세트 제목
+	텍스트 입력
+	질문 세트 이름
+	질문 추가 버튼
+	버튼
+	질문 추가, 각 질문 내용 입력
+	질문 삭제 버튼
+	버튼
+	질문 삭제 버튼
+	예상 답변 추가 버튼
+	버튼
+	각 질문에 대한 예상 답변 추가 가능
+	예상 답변 입력란
+	텍스트 입력
+	예상 답변 텍스트, 응답 유형, 연결된 위기 및 욕구 정보 선택
+	연결된 위기 정보 선택
+	체크박스
+	예상 답변과 연결된 위기 항목 여러 개 선택 가능
+	연결된 욕구 정보 선택
+	체크 박스
+	예상 답변과 연결된 욕구 항목 여러 개 선택 가능
+	등록하기 버튼
+	버튼
+	입력값 유효성 만족 시 저장 API 호출
+	취소 버튼
+	버튼
+	취소하고 팝업 내리기
+	* 처리 절차
+   1. 질문 세트 제목 입력
+   2. 질문 리스트에 질문 추가 및 내용 작성
+   3. 각 질문에 대해 예상 답변 추가, 응답 유형, 위기/욕구 정보 연결
+   4. 저장 버튼 클릭 시 POST /api/qeustion API 호출
+   5. 성공 시 질문 관리 화면으로 이동 및 알림 표시
+   6. 실패 시 오류 메시지 출력
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.11. 질문 세트 수정 화면 상세 설계
+  
+  
+
+* 화면 명
+   * 신규 질문 세트 등록 (/dashboard/questions/new)
+* 화면 목적
+   * 새로운 질문 세트를 생성하여 AI 상담 시나리오를 관리한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	질문 세트 제목
+	텍스트 입력
+	질문 세트 이름
+	질문 추가 버튼
+	버튼
+	질문 추가, 각 질문 내용 입력
+	질문 삭제 버튼
+	버튼
+	질문 삭제 버튼
+	예상 답변 추가 버튼
+	버튼
+	각 질문에 대한 예상 답변 추가 가능
+	예상 답변 입력란
+	텍스트 입력
+	예상 답변 텍스트, 응답 유형, 연결된 위기 및 욕구 정보 선택
+	연결된 위기 정보 선택
+	체크박스
+	예상 답변과 연결된 위기 항목 여러 개 선택 가능
+	연결된 욕구 정보 선택
+	체크 박스
+	예상 답변과 연결된 욕구 항목 여러 개 선택 가능
+	등록하기 버튼
+	버튼
+	입력값 유효성 만족 시 저장 API 호출
+	취소 버튼
+	버튼
+	취소하고 팝업 내리기
+	* 처리 절차
+   1. 질문 세트 제목 입력
+   2. 질문 리스트에 질문 추가 및 내용 작성
+   3. 각 질문에 대해 예상 답변 추가, 응답 유형, 위기/욕구 정보 연결
+   4. 저장 버튼 클릭 시 POST /api/qeustion API 호출
+   5. 성공 시 질문 관리 화면으로 이동 및 알림 표시
+   6. 실패 시 오류 메시지 출력
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.12. 상담 시작 화면 상세 설계
+  
+
+  
+
+* 화면 명
+   * 상담 시작(/dashboard/consultations)
+* 화면 목적
+   * 상담 대상자를 조건별로 검색, 선택하고, 질문 세트를 지정하여 상담을 시작한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	상담 대상자 검색 필터
+	텍스트 입력, 드롭다운
+	이름, 나이(최소/최대), 성별, 지역, 위기 키워드, 욕구 키워드 입력
+	대상자 필터 토글 버튼
+	버튼
+	검색 필터 영역 접기/펼치기
+	검색 버튼
+	버튼
+	입력 조건에 따라 상담 대상자 목록 조회 API 호출
+	초기화 버튼
+	버튼
+	입력 필드 초기화
+	상담 대상자 목록
+	리스트
+	검색 결과 상담 대상자 리스트 표시 및 선택 가능
+	최종 상담 대상자 영역
+	리스트
+	선택된 상담 대상자 목록 표시
+	질문 세트 선택 드롭다운
+	드롭다운
+	사용할 질문 세트 선택
+	상담 시작 버튼
+	버튼
+	상담 대상자 및 질문 세트 선택 시 활성화, 클릭 시 상담 시작 API 호출
+	* 처리 절차
+   * 사용자 입력 필터(이름, 나이, 성별, 지역, 위기/욕구 키워드) 설정
+   * 검색 버튼 클릭 시 GET /api/vulnerable/search API 호출하여 대상자 리스트 조회
+   * 조회된 대상자 목록에서 다중 선택 가능
+   * 선택된 대상자는 ‘최종 상담 대상자’ 영역에 표시되고, 선택 수가 실시간 반영
+   * 질문 세트 선택 드롭다운에서 상담 질문 세트 선택
+   * 상담 시작 버튼 활성화
+   * 상담 시작 버튼 클릭 시 POST /api/queue API 호출하여 상담 대기열에 등록
+   * 성공 시 상담 진행 화면 이동
+   * 실패 시 오류 메시지 표시
+* 예외 처리
+   * 검색 필터 값 유효성 검사 (나이 범위, 키워드 입력 형식 등)
+   * 검색 실패 또는 결과 없음 시 사용자 알림
+   * 상담 대상자 미선택 시 상담 시작 버튼 비활성화
+   * 질문 세트 미선택 시 상담 시작 버튼 비활성화
+   * 상담 대기열 등록 실패 시 에러 메시지 표시
+
+
+3.13. 상담 진행 현황 화면 상세 설계
+  
+
+* 화면 명
+   * 상담 진행 현황 (/dashboard/consultations/status)
+* 화면 목적
+   * 현재 진행 중인 상담 대기열과 상담 상태를 실시간으로 모니터링하고 관리한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	전체 진행률
+	프로그레스 바
+	전체 상담 중 처리 완료 비율과 수치 표시
+	처리 건수 세부 정보
+	텍스트 및 숫자
+	총 상담 건수, 대기, 진행중, 성공, 실패 건수 표시
+	상담 대기열 테이블
+	테이블
+	상담 대상자 ID, 이름, 질문 세트, 상태, 진행 단계/비고 등 정보 표시
+	새로 고침 버튼
+	버튼
+	상담 진행 현황 정보 갱신
+	* 처리 절차
+   * 페이지 진입 시 GET /api/queue/status API 호출
+   * 서버로부터 상담 대기열 및 진행 상태 데이터 수신
+   * 전체 진행률 프로그레스 바 및 세부 수치 렌더링
+   * 상담 대기열 테이블에 대상자별 상태 표시
+   * 새로 고침 버튼 클릭 시 API 재호출 및 화면 갱신
+   * 상태별 필터링 기능(옵션) 추가 가능
+* 예외처리
+   * API 호출 실패 시 사용자에게 오류 메시지 표시 및 재시도 안내
+   * 데이터 비어있을 경우 “상담 대기 중인 대상자가 없습니다” 메시지 표시
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.14. 상담 결과 및 이력 화면 상세 설계
+  
+
+* 화면 명
+   * 상담 결과 및 이력 (/dashboard/history)
+* 화면 목적
+   * 과거 상담 내역을 조회하고, 상세 상담 내용을 확인할 수 있도록 한다.
+UI 요소
+	타입
+	설명
+	검색 입력창
+	텍스트 입력
+	대상자명, 질문 제목, 상담 ID 등으로 검색 가능
+	필터 드롭다운
+	드롭다운
+	전체 회차, 특정 회차 등 필터링 기능
+	필터 버튼
+	버튼
+	필터 조건 적용
+	CSV 내보내기 버튼
+	버튼
+	상담 결과 및 이력 데이터를 CSV 파일로 다운로드
+	상담 결과 목록 테이블
+	테이블
+	상담 ID, 대상자명, 질문 세트, 상담 시간, 회차, 상담 결과, 위기, 욕구, 작업(상세 보기) 표시
+	* 처리 절차
+   * 페이지 진입 시 GET /api/call/history API 호출 (검색, 필터 조건 포함)
+   * 서버로부터 상담 결과 및 이력 데이터 수신
+   * 상담 결과 목록 테이블 렌더링
+   * 검색어 입력 및 필터 조건 변경 시 API 재호출 및 결과 갱신
+   * 상세 보기 아이콘 클릭 시 해당 상담 결과 상세 화면으로 이동
+   * CSV 내보내기 버튼 클릭 시 GET /api/call/export API 호출하여 파일 다운로드
+* 예외 처리
+   * 검색어 및 필터 유효성 검사
+   * 데이터 없음 시 “조회된 상담 결과가 없습니다” 표시
+   * API 실패 시 오류 메시지 출력 및 재시도 안내
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.15. 상담 상세 내역화면 상세 설계
+
+
+  
+
+* 화면 명
+   * 상담 상세 내역 팝업 (/dashboard/history)
+* 화면 목적
+   * 특정 상담 결과의 세부 내역을 상세히 확인할 수 있도록 한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	상담 기본 정보
+	텍스트 그룹
+	상담 ID, 대상자명, 회차, 관리자 ID, 질문 세트 ID, 상담 시간, 소요 시간
+	상담 결과
+	상태 태그
+	상담 결과 상태 표시 (예: 심층 상담 필요, 상담 완료 등)
+	심층 상담 요청 버튼
+	버튼
+	심층 상담 요청 기능 (필요 시 활성화)
+	상담 요약
+	텍스트 영역
+	상담 결과 요약 문구
+	전체 대화 스크립트
+	텍스트 영역
+	상담 시 전체 대화 내용
+	상담 결과 위기 정보
+	리스트
+	상담 중 확인된 위기 정보 항목
+	상담 결과 욕구 정보
+	리스트
+	상담 중 확인된 욕구 정보 항목
+	닫기 버튼
+	버튼
+	팝업 닫기
+	* 처리 절차
+   1. 상담 결과 목록에서 상세 보기 버튼 클릭 시 팝업 오픈
+   2. GET /api/call/history/{call_id} API 호출하여 상세 정보 수신
+   3. 각 UI 영역에 수신 데이터 표시
+   4. 심층 상담 필요 시 ‘심층 상담 요청’ 버튼 활성화
+   5. 심층 상담 요청 버튼 클릭 시 별도 API 호출 혹은 기능 연동 (옵션)
+   6. 닫기 버튼 클릭 시 팝업 닫기
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.16. 상담 통계 화면 상세 설계
+
+
+  
+
+* 화면 명
+   * 상담 통계 (/dashboard/sttistics)
+* 화면 목적
+   * 전체 상담 결과에 대한 통계 데이터를 시각적으로 제공하여, 상담 현황 및 문제점을 한눈에 파악한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	전체 상담 요약
+	카드/숫자 표시
+	총 상담 건수, 상담 성공률, 평균 상담 시간 표시
+	상담 결과 분포
+	막대/파이 차트
+	상담 불가, 상담 양호, 심층 상담 필요 등 결과별 분포 비율
+	심층 상담 사유별 분포
+	막대 차트
+	심층 상담이 필요한 사유별 건수 표시
+	주요 위기 유형 분포
+	막대 차트
+	상담 대상자별 주요 위기 유형별 건수 분포
+	주요 욕구 유형 분포
+	막대 차트
+	상담 대상자별 주요 욕구 유형별 건수 분포
+	* 처리 절차
+   * 화면 진입 시 GET /api/statistics API 호출
+   * 서버로부터 전체 상담 결과 통계 데이터 수신
+   * 각 카드 및 차트에 데이터 렌더링
+* 예외 처리
+   * API 실패 시 오류 메시지 표시 및 재시도 안내
+   * 데이터 없음 시 0 또는 빈 차트 표시
+
+
+
+
+3.17. 계정 설정 화면 상세 설계
+  
+
+* 화면 명
+   * 관리자 가입 승인 (/dashboard/approvals)
+* 화면 목적
+   * 신규 관리자 계정 가입 요청을 조회하고, 승인 또는 거절하여 시스템 관리자를 관리한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	가입 요청 목록
+	테이블
+	사용자 ID, 이메일, 전화번호, 요청일자 표시
+	승인 버튼
+	버튼
+	선택한 가입 요청 승인 처리
+	거절 버튼
+	버튼
+	선택한 가입 요청 거절 처리
+	상태 메시지 영역
+	텍스트
+	처리 결과 및 에러 메시지 표시
+	처리 절차
+1. 화면 진입 시 GET /api/account/ API 호출하여 가입 요청 목록 조회
+2. 목록에 가입 요청 계정 리스트 렌더링
+3. 승인 또는 거절 버튼 클릭 시 각각 POST /api/account/approve 또는 POST /api/account/reject API 호출
+4. 처리 성공 시 목록 갱신 및 성공 메시지 표시
+5. 실패 시 오류 메시지 표시
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.18. 계정 설정 화면 상세 설계
+  
+
+* 화면 명
+   * 계정 설정 (/dashboard/account)
+* 화면 목적
+   * 관리자가 본인의 계정 정보를 확인하고, 이메일, 전화번호, 비밀번호 등을 수정할 수 있도록 한다.
+* 주요 UI 요소
+UI 요소
+	타입
+	설명
+	사용자 ID
+	텍스트 입력 (읽기 전용)
+	변경 불가, 고유 식별자
+	이메일
+	텍스트 입력
+	이메일 형식 유효성 검사 포함
+	전화번호
+	텍스트 입력
+	전화번호 형식 유효성 검사 포함
+	현재 비밀번호
+	비밀번호 입력
+	변경 시 본인 확인 용도, 필수 입력
+	새 비밀번호
+	비밀번호 입력
+	8~16자, 영문 대/소문자, 숫자, 특수문자 포함, 최소 2종류 조합
+	새 비밀번호 확인
+	비밀번호 입력
+	새 비밀번호와 일치 여부 확인
+	정보 변경하기 버튼
+	버튼
+	유효성 검사 통과 시 활성화, 클릭 시 수정 API 호출
+	* 처리 절차
+   1. 화면 진입 시 GET /api/account API 호출하여 기존 계정 정보 불러오기
+   2. 사용자 입력에 따른 실시간 유효성 검사 수행
+   3. 정보 변경하기 버튼 활성화
+   4. 클릭 시 PUT /api/account API 호출하여 정보 수정
+   5. 성공 시 알림 메시지 표시 및 필요 시 재로그인 유도
+   6. 실패 시 오류 메시지 표시
