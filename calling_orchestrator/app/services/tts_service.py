@@ -1,17 +1,20 @@
-import grpc
-from app.config import GRPC_TTS_URL
-from app.protos import tts_pb2, tts_pb2_grpc
+import tempfile
+import os
+import whisper
+import gtts
 
-async def text_to_twiml(text: str) -> str:
-    async with grpc.aio.insecure_channel(GRPC_TTS_URL) as channel:
-        stub = tts_pb2_grpc.TTSServiceStub(channel)
-        request = tts_pb2.TTSRequest(text=text)
-        response = await stub.Synthesize(request)
+model = whisper.load_model("base")  # 필요시 small/medium/large로 변경
 
-    # <Play>로 답변 음성 재생 후, <Record>로 다음 사용자 입력을 받음 (반복 구조)
+def text_to_twiml(text: str) -> str:
+    # gTTS로 텍스트를 mp3로 변환
+    tts = gtts.gTTS(text, lang='ko')
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+        tts.save(tmp.name)
+        audio_url = f"/static/{os.path.basename(tmp.name)}"
+    # 실제 서비스에서는 이 파일을 static 경로에 복사하거나, S3 등 외부 URL로 제공해야 함
     return f"""
     <Response>
-        <Play>{response.audio_url}</Play>
+        <Play>{audio_url}</Play>
         <Record maxLength=\"10\" action=\"/twilio/voice\" method=\"POST\" />
     </Response>
     """.strip()
