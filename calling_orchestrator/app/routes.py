@@ -1,5 +1,5 @@
 ### routes.py
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.encoders import jsonable_encoder
 from app.models import UserData
 from app.services import redis_service, twilio_service, stt_service, llm_service, tts_service, script_logger
@@ -10,8 +10,24 @@ import os
 
 router = APIRouter()
 
-TWILIO_WEBHOOK_URL = os.getenv("TWILIO_WEBHOOK_URL", "http://localhost:8000/twilio/voice")
+TWILIO_WEBHOOK_URL = os.getenv("TWILIO_WEBHOOK_URL", "https://65df-211-178-193-29.ngrok-free.app/twilio/voice")
 SPRING_BOOT_URL = os.getenv("SPRING_BOOT_URL", "http://localhost:8080/api/consult/result")
+
+def format_phone_number(phone: str) -> str:
+    # 공백, 하이픈 등 제거
+    digits = ''.join(filter(str.isdigit, phone))
+    if digits.startswith('0'):
+        # 한국 번호: 01012345678 → +821012345678
+        digits = digits[1:]
+        return f'+82{digits}'
+    elif digits.startswith('1') and len(digits) == 11:
+        # 미국 번호: 1XXXXXXXXXX → +1XXXXXXXXXX
+        return f'+{digits}'
+    else:
+        # 기타: 국제번호가 이미 붙어있거나, 예외 상황
+        if digits.startswith('00'):
+            return f'+{digits[2:]}'
+        return f'+{digits}'
 
 # [POST] /api/receive
 @router.post("/api/receive", summary="Spring Boot → FastAPI: 사용자 정보 및 질문 리스트 수신", tags=["REST API"])
@@ -25,7 +41,9 @@ async def receive_user_data(user: UserData):
         question_data = jsonable_encoder(user.question_list)
         await redis_service.save_question_list(question_data)
 
-        sid = twilio_service.make_call(user.phone, twiml_url=TWILIO_WEBHOOK_URL)
+        # 번호 포맷 변환
+        formatted_phone = format_phone_number(user.phone)
+        sid = twilio_service.make_call(formatted_phone, twiml_url=TWILIO_WEBHOOK_URL)
 
         return {
             "message": "User data received and call initiated.",
@@ -48,7 +66,7 @@ async def handle_twilio_voice(request: Request):
             answer = llm_service.generate_response(user_input)
 
         script_logger.log_interaction(user_input, answer)
-        twiml_response = await tts_service.text_to_twiml(answer)
+        twiml_response = tts_service.text_to_twiml(answer)
         return Response(content=twiml_response, media_type="application/xml")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -78,3 +96,18 @@ async def send_llm_result(llm_result: dict):
     async with httpx.AsyncClient() as client:
         response = await client.post(SPRING_BOOT_URL, json=llm_result)
         return JSONResponse(content={"spring_response": response.json(), "sent_data": llm_result})
+
+# [POST] /api/test_twilio
+@router.post("/api/test_twilio")
+async def test_twilio(phone: str = Query(..., description="테스트할 전화번호")):
+    """
+    Twilio 전화를 테스트합니다. 주어진 전화번호로 전화를 걸고, 결과를 반환합니다.
+    - 요청 데이터: 전화번호
+    - 응답: 전화 연결 결과 및 call sid
+    """
+    try:
+        formatted_phone = format_phone_number(phone)
+        sid = twilio_service.make_call(formatted_phone, twiml_url=TWILIO_WEBHOOK_URL)
+        return {"result": "전화연결 가능", "call_sid": sid}
+    except Exception as e:
+        return {"result": "전화연결 불가", "error": str(e)}

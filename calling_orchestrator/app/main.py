@@ -10,5 +10,5 @@ app.include_router(router)
 
 #port 번호는 나중에 결정
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 6379))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)

@@ -11,3 +11,5 @@ langchain_openai
 openai
 tqdm>=4.66.3
 python-dotenv
+openai-whisper
+gtts
