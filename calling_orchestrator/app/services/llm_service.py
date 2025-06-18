@@ -4,7 +4,8 @@ import os
 
 os.environ["OPENAI_API_KEY"] = LANGCHAIN_API_KEY
 
-chat = ChatOpenAI(temperature=0.7)
+#(gpt-3.5-turbo)로 지정
+chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
 
 def generate_response(user_input: str) -> str:
     return chat.predict(user_input)
