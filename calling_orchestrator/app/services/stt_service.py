@@ -15,3 +15,11 @@ async def speech_to_text(audio_url: str) -> str:
 
     result = model.transcribe(tmp_path, language="ko")  # 한국어 음성일 경우
     return result["text"]
+
+async def listen(phone_number: str) -> str:
+    """
+    Twilio 콜 세션에서 음성 입력을 받아 텍스트로 변환 (예시)
+    실제 구현은 webhook에서 audio_url을 받아 speech_to_text 호출
+    """
+    # 실제로는 Twilio webhook에서 audio_url을 받아 처리해야 함
+    return ""
