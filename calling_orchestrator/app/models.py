@@ -26,7 +26,7 @@ class RiskItem(BaseModel):
     content: str
 
 class DesireItem(BaseModel):
-    desire_index_list: List[int]
+    desire_type: List[int]  # 필드명 desire_index_list → desire_type으로 변경
     content: str
 
 class Vulnerabilities(BaseModel):
@@ -41,3 +41,4 @@ class UserData(BaseModel):
     address: Address
     question_list: List[Question]
     vulnerabilities: Vulnerabilities
+    # system 데이터에 맞게 필드 추가/수정 완료
