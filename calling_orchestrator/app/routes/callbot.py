@@ -1,10 +1,14 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request, Response
 from fastapi.encoders import jsonable_encoder
 from app.models import UserData
-from app.services import redis_service, twilio_service, stt_service, llm_service, script_logger
+from app.services import redis_service, twilio_service, stt_service, llm_service, script_logger, tts_service
 from app.services.classify_service import classify_answer
 from app.utils.diff_utils import count_index, diff_list
 import time
+import httpx
+import os
+
+SPRING_BOOT_URL = os.getenv("SPRING_BOOT_URL", "http://localhost:8080/api/consult/result")
 
 router = APIRouter()
 
@@ -106,3 +110,124 @@ async def callbot_flow(user: UserData, background_tasks: BackgroundTasks):
         }
     }
     return output
+
+# 임시 세션 상태 저장 (실제 서비스는 Redis/DB 사용 권장)
+session_state = {}
+
+@router.post("/api/twilio/voice")
+async def twilio_voice(request: Request):
+    form = await request.form()
+    audio_url = form.get("RecordingUrl")
+    call_sid = form.get("CallSid")
+    start_time = session_state.get(call_sid, {}).get("start_time") or time.time()
+
+    if call_sid not in session_state:
+        dummy_risk_list = ["주거문제", "의료문제", "경제문제"]
+        dummy_desire_list = []
+        session_state[call_sid] = {
+            "current_idx": 0,
+            "risk_list": dummy_risk_list,
+            "desire_list": dummy_desire_list,
+            "script": [],
+            "answers": [],
+            "start_time": start_time,
+            "before_risk": list(dummy_risk_list),
+            "before_desire": list(dummy_desire_list)
+        }
+
+    state = session_state[call_sid]
+    risk_list = state["risk_list"]
+    desire_list = state["desire_list"]
+    idx = state["current_idx"]
+    script = state["script"]
+    answers = state["answers"]
+    before_risk = state["before_risk"]
+    before_desire = state["before_desire"]
+
+    if audio_url:
+        user_text = await stt_service.speech_to_text(audio_url)
+        question = f"{idx+1}번째 질문입니다. {risk_list[idx]}는 아직도 문제가 있으신가요?"
+        script.append(f"Q: {question} A: {user_text}")
+        answers.append(user_text)
+        # LLM을 이용해 risk_list/desire_list 업데이트
+        updated_risk_list = llm_service.update_vulnerable_list(risk_list, user_text)
+        updated_desire_list = llm_service.update_vulnerable_list(desire_list, user_text)
+        state["risk_list"] = updated_risk_list
+        state["desire_list"] = updated_desire_list
+        idx += 1
+        state["current_idx"] = idx
+        if idx < len(updated_risk_list):
+            next_question = f"{idx+1}번째 질문입니다. {updated_risk_list[idx]}는 아직도 문제가 있으신가요?"
+            twiml = f'''
+            <Response>
+                <Say language="ko-KR">{next_question}</Say>
+                <Record maxLength="10" action="/api/twilio/voice" method="POST" />
+            </Response>
+            '''.strip()
+            return Response(content=twiml, media_type="application/xml")
+        else:
+            # 상담 종료: Spring Boot로 전체 결과 전달
+            end_time = time.time()
+            runtime = int(end_time - start_time)
+            after_risk = updated_risk_list
+            after_desire = updated_desire_list
+            # diff 계산
+            from app.utils.diff_utils import count_index, diff_list
+            deleted_risk, new_risk = diff_list(before_risk, after_risk), diff_list(after_risk, before_risk)
+            deleted_desire, new_desire = diff_list(before_desire, after_desire), diff_list(after_desire, before_desire)
+            risk_index_count = count_index(after_risk, 'risk_index_list') if after_risk and hasattr(after_risk[0], 'risk_index_list') else {}
+            desire_index_count = count_index(after_desire, 'desire_type') if after_desire and hasattr(after_desire[0], 'desire_type') else {}
+            del_risk_index_count = count_index(deleted_risk[0], 'risk_index_list') if deleted_risk and deleted_risk[0] else {}
+            del_desire_index_count = count_index(deleted_desire[0], 'desire_type') if deleted_desire and deleted_desire[0] else {}
+            new_risk_index_count = count_index(new_risk[0], 'risk_index_list') if new_risk and new_risk[0] else {}
+            new_desire_index_count = count_index(new_desire[0], 'desire_type') if new_desire and new_desire[0] else {}
+            summary = llm_service.generate_response("다음 대화 내용을 요약해줘: " + " ".join(script))
+            result = 2  # 실제 로직에 따라 0/1/2 결정
+            fail_code = 0
+            need_human = 0
+            output = {
+                "overall_script": "\n".join(script),
+                "summary": summary,
+                "result": result,
+                "fail_code": fail_code,
+                "need_human": need_human,
+                "runtime": runtime,
+                "result_vulnerabilities": {
+                    "risk_list": [r for r in after_risk],
+                    "desire_list": [d for d in after_desire],
+                    "risk_index_count": risk_index_count,
+                    "desire_index_count": desire_index_count
+                },
+                "delete_vulnerabilities": {
+                    "risk_list": [r for r in deleted_risk[0]] if deleted_risk and deleted_risk[0] else [],
+                    "desire_list": [d for d in deleted_desire[0]] if deleted_desire and deleted_desire[0] else [],
+                    "risk_index_count": del_risk_index_count,
+                    "desire_index_count": del_desire_index_count
+                },
+                "new_vulnerabilities": {
+                    "risk_list": [r for r in new_risk[0]] if new_risk and new_risk[0] else [],
+                    "desire_list": [d for d in new_desire[0]] if new_desire and new_desire[0] else [],
+                    "risk_index_count": new_risk_index_count,
+                    "desire_index_count": new_desire_index_count
+                }
+            }
+            async with httpx.AsyncClient() as client:
+                await client.post(SPRING_BOOT_URL, json=output)
+            del session_state[call_sid]
+            twiml = tts_service.text_to_twiml("상담을 종료합니다. 감사합니다.")
+            return Response(content=twiml, media_type="application/xml")
+    else:
+        greeting = "안녕하십니까? AI 보이스 봇 입니다. 몇가지 궁금한 상황에 대해 여쭈어 보겠습니다."
+        if risk_list:
+            first_question = f"첫 번째 질문입니다. {risk_list[0]}는 아직도 문제가 있으신가요?"
+        else:
+            first_question = "질문이 없습니다."
+        twiml = f'''
+        <Response>
+            <Say language="ko-KR">{greeting}</Say>
+            <Pause length="1"/>
+            <Say language="ko-KR">{first_question}</Say>
+            <Record maxLength="10" action="/api/twilio/voice" method="POST" />
+        </Response>
+        '''.strip()
+        return Response(content=twiml, media_type="application/xml")
