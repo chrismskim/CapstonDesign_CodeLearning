@@ -3,6 +3,22 @@ from app.config import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_PHONE
 
 client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
+def format_phone_number(phone: str) -> str:
+    # 공백, 하이픈 등 제거
+    digits = ''.join(filter(str.isdigit, phone))
+    if digits.startswith('0'):
+        # 한국 번호: 01012345678 → +821012345678
+        digits = digits[1:]
+        return f'+82{digits}'
+    elif digits.startswith('1') and len(digits) == 11:
+        # 미국 번호: 1XXXXXXXXXX → +1XXXXXXXXXX
+        return f'+{digits}'
+    else:
+        # 국제번호 등 기타
+        if digits.startswith('00'):
+            return f'+{digits[2:]}'
+        return f'+{digits}'
+
 def make_call(phone_number: str, twiml_url: str):
     call = client.calls.create(
         to=phone_number,
@@ -11,18 +27,9 @@ def make_call(phone_number: str, twiml_url: str):
     )
     return call.sid
 
-def speak(phone_number: str, text: str):
+def speak(text: str) -> str:
     """
-    Twilio TTS로 지정된 번호에 음성 송출 (예: TwiML <Say> 활용)
-    실제 구현은 Twilio Studio/Voice API와 연동 필요
+    Twilio <Say>로 안내할 텍스트를 TwiML로 반환
+    실제로는 FastAPI 엔드포인트에서 이 함수를 호출해 TwiML을 반환하면 됨
     """
-    # Twilio의 <Say>를 활용한 예시 (실제 서비스에서는 webhook 등과 연동 필요)
-    # 이 함수는 콜 세션 내에서만 동작해야 하며, 실제로는 Twilio webhook에서 처리
-    pass
-
-def listen(phone_number: str) -> str:
-    """
-    지정된 번호의 콜 세션에서 음성 입력(STT) 결과를 반환
-    실제 구현은 Twilio webhook과 연동 필요
-    """
-    pass
+    return f'<Response><Say language="ko-KR">{text}</Say></Response>'
