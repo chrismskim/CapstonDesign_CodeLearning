@@ -10,7 +10,7 @@ import os
 
 router = APIRouter()
 
-TWILIO_WEBHOOK_URL = os.getenv("TWILIO_WEBHOOK_URL", "https://65df-211-178-193-29.ngrok-free.app/twilio/voice")
+TWILIO_WEBHOOK_URL = os.getenv("TWILIO_WEBHOOK_URL", "https://9b3e-211-178-193-29.ngrok-free.app/api/twilio/voice")
 SPRING_BOOT_URL = os.getenv("SPRING_BOOT_URL", "http://localhost:8080/api/consult/result")
 
 def format_phone_number(phone: str) -> str:
@@ -60,6 +60,12 @@ async def handle_twilio_voice(request: Request):
     audio_url = form_data.get("RecordingUrl")
 
     try:
+        # 최초 진입: 사용자 입력이 없으면 인사말 먼저 출력
+        if audio_url is None:
+            greeting = "안녕하십니까. 상담을 시작하겠습니다. 질문에 답변해 주세요."
+            twiml_response = tts_service.text_to_twiml(greeting)
+            return Response(content=twiml_response, media_type="application/xml")
+
         user_input = await stt_service.speech_to_text(audio_url)
         answer = await redis_service.find_answer(user_input)
         if not answer:

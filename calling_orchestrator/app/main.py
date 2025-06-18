@@ -12,3 +12,9 @@ app.include_router(router)
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 6379))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
+
+
+
+#1. docker 실행
+#2. uvicorn app.main:app --reload
+#3. ngrok 실행 후 url get
