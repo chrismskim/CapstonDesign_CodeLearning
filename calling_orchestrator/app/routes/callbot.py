@@ -8,6 +8,7 @@ from app.services.session_service import save_session, get_session, clear_sessio
 from app.services.question_service import get_next_question, is_end
 from app.services.answer_service import save_answer, update_vulnerabilities
 from app.services.result_service import build_output, send_result_to_spring
+from app.config import TWILIO_WEBHOOK_URL
 import time
 import httpx
 import os
@@ -22,13 +23,13 @@ async def receive_user_data(user: UserData, background_tasks: BackgroundTasks):
         # 세션 정보 Redis에 저장 (전화번호를 call_sid로 사용)
         session_data = {
             "current_idx": 0,
-            "risk_list": [r.dict() for r in user.vulnerabilities.risk_list],
-            "desire_list": [d.dict() for d in user.vulnerabilities.desire_list],
+            "risk_list": [r.model_dump() for r in user.vulnerabilities.risk_list],
+            "desire_list": [d.model_dump() for d in user.vulnerabilities.desire_list],
             "script": [],
             "answers": [],
             "start_time": time.time(),
-            "before_risk": [r.dict() for r in user.vulnerabilities.risk_list],
-            "before_desire": [d.dict() for d in user.vulnerabilities.desire_list],
+            "before_risk": [r.model_dump() for r in user.vulnerabilities.risk_list],
+            "before_desire": [d.model_dump() for d in user.vulnerabilities.desire_list],
             "user_phone": user.phone
         }
         await save_session(user.phone, session_data)
@@ -37,98 +38,18 @@ async def receive_user_data(user: UserData, background_tasks: BackgroundTasks):
         output = await callbot_flow(user, background_tasks)
         return output
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[ERROR /api/receive] {e}\n{tb}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}\n{tb}")
 
 async def callbot_flow(user: UserData, background_tasks: BackgroundTasks):
     formatted_phone = twilio_service.format_phone_number(user.phone)
-    sid = twilio_service.make_call(formatted_phone)
-    start_time = time.time()
-    before_risk = list(user.vulnerabilities.risk_list)
-    before_desire = list(user.vulnerabilities.desire_list)
-    overall_script = []
-    exception_handled = False
-    deep_handled = False
-    for risk in user.vulnerabilities.risk_list[:]:
-        question = risk.content + " 아직도 문제가 있으신가요?"
-        twilio_service.speak(formatted_phone, question)
-        answer = await stt_service.listen(formatted_phone)
-        script_logger.log_interaction(question, answer)
-        overall_script.append(f"Q: {question} A: {answer}")
-        result = classify_answer(answer)
-        if result["type"] == 0 and not exception_handled:
-            end_time = time.time()
-            output = {
-                "overall_script": "\n".join(overall_script),
-                "summary": result["reason"],
-                "result": 0,
-                "fail_code": result["fail_code"],
-                "need_human": 0,
-                "runtime": int(end_time - start_time),
-                "result_vulnerabilities": {},
-                "delete_vulnerabilities": {},
-                "new_vulnerabilities": {}
-            }
-            exception_handled = True
-            return output
-        elif result["type"] == 3 and not deep_handled:
-            deep_handled = True
-            need_human = 1
-        elif result["type"] == 1:
-            if not any(r.content == result["category"] for r in user.vulnerabilities.risk_list):
-                user.vulnerabilities.risk_list.append(type(risk)(risk_index_list=[0], content=result["category"]))
-        elif result["type"] == 2:
-            if not any(d.content == result["category"] for d in user.vulnerabilities.desire_list):
-                user.vulnerabilities.desire_list.append(type(user.vulnerabilities.desire_list[0])(desire_type=[0], content=result["category"]))
-    twilio_service.speak(formatted_phone, "추가 불편사항 있으신가요?")
-    extra = await stt_service.listen(formatted_phone)
-    overall_script.append(f"Q: 추가 불편사항 있으신가요? A: {extra}")
-    if extra and extra.strip():
-        user.vulnerabilities = llm_service.update_vulnerable_list(user.vulnerabilities, extra)
-    twilio_service.speak(formatted_phone, "통화를 종료합니다.")
-    end_time = time.time()
-    after_risk = user.vulnerabilities.risk_list
-    after_desire = user.vulnerabilities.desire_list
-    deleted_risk, new_risk = diff_list(before_risk, after_risk), diff_list(after_risk, before_risk)
-    deleted_desire, new_desire = diff_list(before_desire, after_desire), diff_list(after_desire, before_desire)
-    risk_index_count = count_index(after_risk, 'risk_index_list')
-    desire_index_count = count_index(after_desire, 'desire_type')
-    del_risk_index_count = count_index(deleted_risk[0], 'risk_index_list')
-    del_desire_index_count = count_index(deleted_desire[0], 'desire_type')
-    new_risk_index_count = count_index(new_risk[0], 'risk_index_list')
-    new_desire_index_count = count_index(new_desire[0], 'desire_type')
-    summary = llm_service.generate_response("다음 대화 내용을 요약해줘: " + " ".join(overall_script))
-    result = 2 if not exception_handled else 0
-    fail_code = 0
-    need_human = 1 if deep_handled else 0
-    output = {
-        "overall_script": "\n".join(overall_script),
-        "summary": summary,
-        "result": result,
-        "fail_code": fail_code,
-        "need_human": need_human,
-        "runtime": int(end_time - start_time),
-        "result_vulnerabilities": {
-            "risk_list": [r.dict() for r in after_risk],
-            "desire_list": [d.dict() for d in after_desire],
-            "risk_index_count": risk_index_count,
-            "desire_index_count": desire_index_count
-        },
-        "delete_vulnerabilities": {
-            "risk_list": [r.dict() for r in deleted_risk[0]],
-            "desire_list": [d.dict() for d in deleted_desire[0]],
-            "risk_index_count": del_risk_index_count,
-            "desire_index_count": del_desire_index_count
-        },
-        "new_vulnerabilities": {
-            "risk_list": [r.dict() for r in new_risk[0]],
-            "desire_list": [d.dict() for d in new_desire[0]],
-            "risk_index_count": new_risk_index_count,
-            "desire_index_count": new_desire_index_count
-        }
-    }
-    return output
+    sid = twilio_service.make_call(formatted_phone, twiml_url=TWILIO_WEBHOOK_URL)
+    # 질문만 Twilio로 전달하고, 음성 인식 및 답변 처리는 /api/twilio/voice에서 담당
+    return {"result": "콜봇 플로우 시작", "call_sid": sid}
 
-@router.post("/api/twilio/voice")
+@router.api_route("/api/twilio/voice")
 async def twilio_voice(request: Request):
     form = await request.form()
     audio_url = form.get("RecordingUrl")
@@ -182,7 +103,6 @@ async def twilio_voice(request: Request):
         '''.strip()
         return Response(content=twiml, media_type="application/xml")
 
-
 @router.post("/api/test_redis", summary="Redis 테스트 API", tags=["Test"])
 async def test_redis(request: Request):
     data = await request.json()
@@ -200,29 +120,3 @@ async def test_redis(request: Request):
         "phone": loaded.get("phone")
     }
 
-@router.post("/api/llm_test", summary="LLM 취약유형 요약 테스트", tags=["Test"])
-async def llm_test(request: Request):
-    data = await request.json()
-    # data가 리스트로 바로 들어오는 경우와 dict로 들어오는 경우 모두 처리
-    if isinstance(data, list):
-        script = data
-    elif isinstance(data, dict):
-        script = data.get("script")
-    else:
-        return {"error": "script 필드를 리스트로 보내거나, {\"script\": [...]} 형태로 보내세요."}
-    if not script:
-        return {"error": "script 필드는 필수입니다."}
-    # script가 리스트면 문자열로 합치기
-    if isinstance(script, list):
-        script_text = "\n".join(script)
-    else:
-        script_text = str(script)
-    from app.services import llm_service
-    prompt = (
-        "아래는 상담 대화 스크립트입니다. "
-        "이 대화에서 드러난 취약유형(문제)의 개수와, 각 취약유형이 무엇인지, 그리고 각 문제에 대해 간단히 요약해 주세요. "
-        "출력 예시: {'count': 2, 'types': ['경제적 어려움', '주거 문제'], 'summary': '...'}\n"
-        f"대화 스크립트:\n{script_text}"
-    )
-    result = llm_service.generate_response(prompt)
-    return {"llm_result": result}
