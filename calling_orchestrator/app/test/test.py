@@ -5,7 +5,7 @@ from app.services import twilio_service
 from pydantic import BaseModel
 from fastapi.responses import Response
 
-TWILIO_WEBHOOK_URL = os.getenv("TWILIO_WEBHOOK_URL", "https://e432-211-178-193-29.ngrok-free.app/api/test_twilio_webhook")
+TWILIO_WEBHOOK_URL = os.getenv("TWILIO_WEBHOOK_URL", "https://b871-211-178-193-29.ngrok-free.app/api/test_twilio_webhook")
 
 app = FastAPI()
 

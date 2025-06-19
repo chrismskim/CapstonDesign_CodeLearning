@@ -2,112 +2,117 @@
 
 ## 개요
 
-이 프로젝트는 취약계층 대상 자동 전화 상담(콜봇) 시스템입니다.
-Spring(backend)에서 사용자 정보를 받아, FastAPI 기반 콜봇이 Twilio를 통해 전화를 걸고, LLM을 활용해 상담/분류/요약/상담결과를 자동으로 처리합니다.
+이 프로젝트는 취약계층 등 사용자에게 자동 전화 상담을 제공하는 콜봇 시스템입니다. Spring Boot(backend)에서 사용자 정보를 받아 FastAPI가 Twilio를 통해 전화를 걸고, 음성 인식(STT), LLM 분석, 상담 결과 저장/전송까지 자동으로 처리합니다.
 
 ---
 
-## 전체 파일 구조 및 역할
+## 전체 파일 구조
 
 ```
 calling_orchestrator/
+  requirements.txt
+  Readme.md
   app/
+    __init__.py
+    config.py
     main.py                  # FastAPI 앱 실행 및 라우터 등록
     models.py                # 데이터(Pydantic) 모델 정의
+    result_forwarding.py     # LLM 결과 등 외부 전송 라우터
+    protos/
+      __init__.py
+      stt_pb2.py
+      stt_pb2_grpc.py
+      tts_pb2.py
+      tts_pb2_grpc.py
+      __pycache__/
     routes/
-      callbot.py             # 콜봇 플로우 및 엔드포인트
+      __init__.py
+      callbot.py             # 콜봇 플로우 및 주요 엔드포인트 (상담 전체 흐름)
+      __pycache__/
     services/
-      twilio_service.py      # Twilio 전화/음성 송출/수신
+      __init__.py
+      answer_service.py
+      classify_service.py
+      llm_service.py         # LLM 활용(분류, 요약 등)
+      question_service.py
+      redis_service.py
+      result_service.py
+      script_logger.py
+      session_service.py     # Redis 세션 관리
       stt_service.py         # 음성(STT) → 텍스트 변환
-      llm_service.py         # LLM 활용(답변 판별, 요약, 욕구 분류 등)
-      redis_service.py       # 질문 리스트 캐싱/조회
-      script_logger.py       # 대화 스크립트 저장
-      classify_service.py    # 답변 분류(예외/위기/욕구/심층상담, LLM 활용)
+      tts_service.py
+      twilio_service.py      # Twilio 전화/음성 송출/수신
+      __pycache__/
+    static/
+    test/
+      test.py
+      test_redis_session.py
+      __pycache__/
     utils/
-      diff_utils.py          # 리스트 diff, count 등 유틸 함수
+      __init__.py
+      diff_utils.py
+      __pycache__/
+    __pycache__/
 ```
 
 ---
 
-## 주요 동작 흐름
+## 전체 동작 흐름
 
-1. **system(Spring)** → **FastAPI `/api/receive`**
+1. **Spring Boot → FastAPI `/api/receive`**
 
-   - 사용자 정보, 질문, 취약정보 등 JSON을 POST
-   - `UserData` 모델로 파싱
+   - Spring Boot가 사용자 정보(전화번호, 이름, vulnerable/위기·욕구 리스트, 질문 리스트 등)를 FastAPI `/api/receive`로 POST
+   - FastAPI는 받은 정보를 Redis 등 세션 저장소에 저장
 
-2. **콜봇 플로우 실행** (`routes/callbot.py`)
+2. **FastAPI → Twilio 전화 발신**
 
-   - Twilio로 전화 연결
-   - risk_list(위기정보) 기반 질문/응답 반복
-   - 각 답변을 `classify_service.classify_answer`로 분류
-     - 예외처리(type 0): 즉시 상담 종료 및 결과 반환
-     - 심층상담(type 3): need_human=1로 표시
-     - 위기상황(type 1): risk_list에 추가/업데이트
-     - 욕구상황(type 2): LLM으로 카테고리 판별, desire_list에 추가/업데이트
-   - 추가 불편사항 질문/답변 → LLM으로 vulnerabilities 업데이트
-   - 전체 대화 스크립트, 요약, 상담 결과 등 output(JSON) 생성 및 반환
+   - FastAPI가 Twilio API로 전화번호로 전화를 걸고, Webhook URL(`/api/twilio/voice`)로 상담 흐름을 제어
 
-3. **서비스/유틸 함수**
-   - Twilio, STT, LLM, Redis, ScriptLogger 등은 각각의 서비스 파일에서 관리
-   - diff, count 등 리스트 비교/집계는 utils에서 관리
+3. **Twilio Webhook → FastAPI `/api/twilio/voice`**
 
----
+   - Twilio가 전화 연결 후 `/api/twilio/voice`로 상담 흐름을 위임
+   - vulnerable 리스트 각 항목에 대해 “아직도 문제가 있으신가요?” 등 질문을 음성으로 안내
+   - 사용자가 음성으로 답하면 Twilio가 녹음, 오디오 URL을 FastAPI로 POST
+   - FastAPI가 오디오를 STT로 텍스트 변환, classify로 분석해 해결 여부 판단(해결 시 리스트에서 삭제)
 
-## 주요 함수 및 데이터 흐름
+4. **vulnerable 리스트 종료 후**
 
-- `receive_user_data(user: UserData, background_tasks)`
+   - “추가로 불편한 점 있으신가요?” 질문
+   - 있으면 답변을 받아 LLM으로 타입 분류 후 리스트에 추가, 다시 상담 루프
+   - 없으면 상담 종료 여부 확인
 
-  - system에서 받은 JSON을 UserData로 파싱
-  - 질문 리스트를 redis에 저장
-  - 콜봇 플로우 실행: `callbot_flow(user, background_tasks)`
-
-- `callbot_flow(user: UserData, background_tasks)`
-
-  - Twilio로 전화 연결, 질문/응답 반복, 답변 분류 및 취약정보 업데이트
-  - 추가 불편사항 질문/답변, 상담 결과 output 생성
-
-- `classify_service.classify_answer(answer: str)`
-
-  - 답변을 예외/위기/욕구/심층상담으로 분류 (욕구는 LLM 활용)
-
-- `llm_service.generate_response(prompt)`
-
-  - LLM(OpenAI 등)으로 프롬프트에 대한 답변 생성
-
-- `utils.diff_utils.diff_list`, `count_index`
-  - 상담 전후 리스트의 diff(삭제/신규) 및 index별 개수 집계
+5. **상담 종료**
+   - “상담을 종료합니다” 안내 후 통화 종료
+   - 상담 결과(스크립트, 요약, 최종 vulnerable 리스트 등)를 Spring Boot 등 외부 시스템으로 전송 또는 저장 (`/api/send_llm_result`)
 
 ---
 
-## output 예시
+## API 요약
 
-```
-{
-  "overall_script": "대화 내용 전체 스크립트",
-  "summary": "상담 내역 요약",
-  "result": 2,
-  "fail_code": 0,
-  "need_human": 0,
-  "runtime": 120,
-  "result_vulnerabilities": { ... },
-  "delete_vulnerabilities": { ... },
-  "new_vulnerabilities": { ... }
-}
-```
+- `POST /api/receive` : Spring Boot → FastAPI, 사용자 정보 및 상담 시작
+- `POST /api/twilio/voice` : Twilio Webhook, 음성 응답 처리 및 상담 흐름 제어
+- `POST /api/send_llm_result` : FastAPI → Spring Boot, 상담 결과 전송
+
+---
+
+## 기타
+
+- Redis를 세션 저장소로 사용
+- LLM(OpenAI 등)으로 답변 분류/요약/상담 결과 생성
+- Twilio로 전화 발신 및 음성 안내/녹음/수신
 
 ---
 
 ## 실행 방법
 
-1. Twilio, OpenAI 등 환경변수/설정 파일 준비
-2. `main.py`로 FastAPI 서버 실행
-3. system(Spring)에서 `/api/receive`로 데이터 POST
-4. 콜봇이 자동으로 전화 및 상담 진행, 결과 output 반환
+1. 의존성 설치: `pip install -r requirements.txt`
+2. FastAPI 실행: `uvicorn app.main:app --reload`
+3. (개발용) ngrok 등으로 외부 Webhook URL 연결
 
 ---
 
-## 확장/유지보수
+### 확장
 
-- 각 기능별로 파일이 분리되어 있어, 서비스/유틸/플로우별로 독립적 유지보수 가능
-- LLM 프롬프트, 분류 로직, output 포맷 등은 각 파일에서 쉽게 수정 가능
+- 주요 로직: `app/routes/callbot.py`, `app/services/`, `app/result_forwarding.py`
+- Spring Boot 연동: system/backend/
+- 프론트엔드: system/frontend/
