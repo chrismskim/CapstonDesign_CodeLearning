@@ -20,7 +20,6 @@ router = APIRouter()
 @router.post("/api/receive", summary="Spring Boot → FastAPI: 취약계층 콜봇 전체 플로우", tags=["REST API"])
 async def receive_user_data(user: UserData, background_tasks: BackgroundTasks):
     try:
-        # 세션 정보 Redis에 저장 (전화번호를 call_sid로 사용)
         session_data = {
             "current_idx": 0,
             "risk_list": [r.model_dump() for r in user.vulnerabilities.risk_list],
@@ -46,62 +45,84 @@ async def receive_user_data(user: UserData, background_tasks: BackgroundTasks):
 async def callbot_flow(user: UserData, background_tasks: BackgroundTasks):
     formatted_phone = twilio_service.format_phone_number(user.phone)
     sid = twilio_service.make_call(formatted_phone, twiml_url=TWILIO_WEBHOOK_URL)
-    # 질문만 Twilio로 전달하고, 음성 인식 및 답변 처리는 /api/twilio/voice에서 담당
     return {"result": "콜봇 플로우 시작", "call_sid": sid}
 
-@router.api_route("/api/twilio/voice")
+@router.api_route("/api/twilio/voice", methods=["GET", "POST"])
 async def twilio_voice(request: Request):
     form = await request.form()
     audio_url = form.get("RecordingUrl")
     call_sid = form.get("CallSid")
-    # Redis에서 세션 정보 조회 (call_sid는 Twilio에서 부여, 여기서는 phone을 사용)
+
+    print(f"[Twilio Voice Webhook] method={request.method}, CallSid={call_sid}, RecordingUrl={audio_url}")
+
+    # Redis에서 세션 조회 (CallSid를 키로 사용)
     state = await get_session(call_sid)
     if not state:
-        # 세션이 없으면 에러 응답
-        return Response(content="<Response><Say language=\"ko-KR\">세션 정보가 없습니다. 상담을 종료합니다.</Say></Response>", media_type="application/xml")
-    risk_list = state["risk_list"]
-    desire_list = state["desire_list"]
-    idx = state["current_idx"]
-    if audio_url:
-        user_text = await stt_service.speech_to_text(audio_url)
-        question = get_next_question(risk_list, idx)
-        save_answer(state, question, user_text)
-        updated_risk_list, updated_desire_list = update_vulnerabilities(risk_list, desire_list, user_text)
-        state["risk_list"] = updated_risk_list
-        state["desire_list"] = updated_desire_list
-        idx += 1
-        state["current_idx"] = idx
-        await save_session(call_sid, state)
-        if not is_end(idx, updated_risk_list):
-            next_question = get_next_question(updated_risk_list, idx)
-            twiml = f'''
-            <Response>
-                <Say language="ko-KR">{next_question}</Say>
-                <Record maxLength="10" action="/api/twilio/voice" method="POST" />
-            </Response>
-            '''.strip()
-            return Response(content=twiml, media_type="application/xml")
+        twiml = """
+<Response>
+    <Say language="ko-KR">세션 정보가 없습니다. 상담을 종료합니다.</Say>
+</Response>
+"""
+        return Response(content=twiml.strip(), media_type="application/xml")
+
+    risk_list = state.get("risk_list", [])
+    desire_list = state.get("desire_list", [])
+    idx = state.get("current_idx", 0)
+
+    try:
+        if audio_url:
+            # STT 변환
+            user_text = await stt_service.speech_to_text(audio_url)
+
+            question = get_next_question(risk_list, idx)
+            save_answer(state, question, user_text)
+            updated_risk_list, updated_desire_list = update_vulnerabilities(risk_list, desire_list, user_text)
+
+            state["risk_list"] = updated_risk_list
+            state["desire_list"] = updated_desire_list
+            idx += 1
+            state["current_idx"] = idx
+            await save_session(call_sid, state)
+
+            if not is_end(idx, updated_risk_list):
+                next_question = get_next_question(updated_risk_list, idx)
+                twiml = f"""
+<Response>
+    <Say language="ko-KR">{next_question}</Say>
+    <Record maxLength="10" action="{TWILIO_WEBHOOK_URL}" method="POST" />
+</Response>
+"""
+                return Response(content=twiml.strip(), media_type="application/xml")
+            else:
+                output = build_output(state)
+                await send_result_to_spring(call_sid, output)
+                await clear_session(call_sid)
+                twiml = tts_service.text_to_twiml("상담을 종료합니다. 감사합니다.")
+                return Response(content=twiml, media_type="application/xml")
+
         else:
-            output = build_output(state)
-            await send_result_to_spring(call_sid, output)
-            await clear_session(call_sid)
-            twiml = tts_service.text_to_twiml("상담을 종료합니다. 감사합니다.")
-            return Response(content=twiml, media_type="application/xml")
-    else:
-        greeting = "안녕하십니까? AI 보이스 봇 입니다. 몇가지 궁금한 상황에 대해 여쭈어 보겠습니다."
-        if risk_list:
-            first_question = get_next_question(risk_list, 0)
-        else:
-            first_question = "질문이 없습니다."
-        twiml = f'''
-        <Response>
-            <Say language="ko-KR">{greeting}</Say>
-            <Pause length="1"/>
-            <Say language="ko-KR">{first_question}</Say>
-            <Record maxLength="10" action="/api/twilio/voice" method="POST" />
-        </Response>
-        '''.strip()
-        return Response(content=twiml, media_type="application/xml")
+            greeting = "안녕하십니까? AI 보이스 봇 입니다. 몇가지 궁금한 상황에 대해 여쭈어 보겠습니다."
+            first_question = get_next_question(risk_list, 0) if risk_list else "질문이 없습니다."
+            twiml = f"""
+<Response>
+    <Say language="ko-KR">{greeting}</Say>
+    <Pause length="1" />
+    <Say language="ko-KR">{first_question}</Say>
+    <Record maxLength="10" action="{TWILIO_WEBHOOK_URL}" method="POST" />
+</Response>
+"""
+            return Response(content=twiml.strip(), media_type="application/xml")
+
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[ERROR /api/twilio/voice] {e}\n{tb}")
+        twiml = """
+<Response>
+    <Say language="ko-KR">처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.</Say>
+</Response>
+"""
+        return Response(content=twiml.strip(), media_type="application/xml")
 
 @router.post("/api/test_redis", summary="Redis 테스트 API", tags=["Test"])
 async def test_redis(request: Request):
@@ -110,13 +131,10 @@ async def test_redis(request: Request):
     phone = data.get("phone")
     if not phone:
         raise HTTPException(status_code=400, detail="phone 필드는 필수입니다.")
-    # Redis에 저장
     from app.services.session_service import save_session, get_session as get_session_async
     await save_session(phone, data)
-    # Redis에서 꺼내오기
     loaded = await get_session_async(phone)
     return {
         "name": loaded.get("name"),
         "phone": loaded.get("phone")
     }
-
