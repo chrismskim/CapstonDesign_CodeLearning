@@ -59,10 +59,10 @@ async def twilio_voice(request: Request):
     state = await get_session(call_sid)
     if not state:
         twiml = """
-<Response>
-    <Say language="ko-KR">세션 정보가 없습니다. 상담을 종료합니다.</Say>
-</Response>
-"""
+        <Response>
+            <Say language="ko-KR">세션 정보가 없습니다. 상담을 종료합니다.</Say>
+        </Response>
+        """
         return Response(content=twiml.strip(), media_type="application/xml")
 
     risk_list = state.get("risk_list", [])
@@ -76,6 +76,7 @@ async def twilio_voice(request: Request):
 
             question = get_next_question(risk_list, idx)
             save_answer(state, question, user_text)
+            state["script"].append(f"Q: {question} A: {user_text}")
             updated_risk_list, updated_desire_list = update_vulnerabilities(risk_list, desire_list, user_text)
 
             state["risk_list"] = updated_risk_list
@@ -87,11 +88,11 @@ async def twilio_voice(request: Request):
             if not is_end(idx, updated_risk_list):
                 next_question = get_next_question(updated_risk_list, idx)
                 twiml = f"""
-<Response>
-    <Say language="ko-KR">{next_question}</Say>
-    <Record maxLength="10" action="{TWILIO_WEBHOOK_URL}" method="POST" />
-</Response>
-"""
+                <Response>
+                    <Say language="ko-KR">{next_question}</Say>
+                    <Record maxLength="10" action="{TWILIO_WEBHOOK_URL}" method="POST" />
+                </Response>
+                """
                 return Response(content=twiml.strip(), media_type="application/xml")
             else:
                 output = build_output(state)
@@ -104,13 +105,13 @@ async def twilio_voice(request: Request):
             greeting = "안녕하십니까? AI 보이스 봇 입니다. 몇가지 궁금한 상황에 대해 여쭈어 보겠습니다."
             first_question = get_next_question(risk_list, 0) if risk_list else "질문이 없습니다."
             twiml = f"""
-<Response>
-    <Say language="ko-KR">{greeting}</Say>
-    <Pause length="1" />
-    <Say language="ko-KR">{first_question}</Say>
-    <Record maxLength="10" action="{TWILIO_WEBHOOK_URL}" method="POST" />
-</Response>
-"""
+            <Response>
+                <Say language="ko-KR">{greeting}</Say>
+                <Pause length="1" />
+                <Say language="ko-KR">{first_question}</Say>
+                <Record maxLength="10" action="{TWILIO_WEBHOOK_URL}" method="POST" />
+            </Response>
+            """
             return Response(content=twiml.strip(), media_type="application/xml")
 
     except Exception as e:
@@ -118,23 +119,8 @@ async def twilio_voice(request: Request):
         tb = traceback.format_exc()
         print(f"[ERROR /api/twilio/voice] {e}\n{tb}")
         twiml = """
-<Response>
-    <Say language="ko-KR">처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.</Say>
-</Response>
-"""
+        <Response>
+            <Say language="ko-KR">처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.</Say>
+        </Response>
+        """
         return Response(content=twiml.strip(), media_type="application/xml")
-
-@router.post("/api/test_redis", summary="Redis 테스트 API", tags=["Test"])
-async def test_redis(request: Request):
-    data = await request.json()
-    name = data.get("name")
-    phone = data.get("phone")
-    if not phone:
-        raise HTTPException(status_code=400, detail="phone 필드는 필수입니다.")
-    from app.services.session_service import save_session, get_session as get_session_async
-    await save_session(phone, data)
-    loaded = await get_session_async(phone)
-    return {
-        "name": loaded.get("name"),
-        "phone": loaded.get("phone")
-    }
