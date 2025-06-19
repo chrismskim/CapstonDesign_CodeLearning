@@ -12,6 +12,7 @@ def get_env_or_raise(key: str, default=None, required=False):
 TWILIO_ACCOUNT_SID = get_env_or_raise("TWILIO_ACCOUNT_SID", required=True)
 TWILIO_AUTH_TOKEN = get_env_or_raise("TWILIO_AUTH_TOKEN", required=True)
 TWILIO_FROM_PHONE = get_env_or_raise("TWILIO_FROM_PHONE", required=True)
+TWILIO_WEBHOOK_URL = get_env_or_raise("TWILIO_WEBHOOK_URL", required=True)
 
 REDIS_HOST = get_env_or_raise("REDIS_HOST", "localhost")
 REDIS_PORT = int(get_env_or_raise("REDIS_PORT", 6379))
