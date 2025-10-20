@@ -15,8 +15,8 @@ def build_output(state, result=2, fail_code=0, need_human=0):
     runtime = int(time.time() - state["start_time"])
     deleted_risk, new_risk = diff_list(before_risk, after_risk), diff_list(after_risk, before_risk)
     deleted_desire, new_desire = diff_list(before_desire, after_desire), diff_list(after_desire, before_desire)
-    risk_index_count = count_index(after_risk, 'risk_index_list') if after_risk and hasattr(after_risk[0], 'risk_index_list') else {}
-    desire_index_count = count_index(after_desire, 'desire_type') if after_desire and hasattr(after_desire[0], 'desire_type') else {}
+    risk_index_count = count_index(after_risk, 'risk_index_list') if after_risk and after_risk[0] and hasattr(after_risk[0], 'risk_index_list') else {}
+    desire_index_count = count_index(after_desire, 'desire_type') if after_desire and after_desire[0] and hasattr(after_desire[0], 'desire_type') else {}
     del_risk_index_count = count_index(deleted_risk[0], 'risk_index_list') if deleted_risk and deleted_risk[0] else {}
     del_desire_index_count = count_index(deleted_desire[0], 'desire_type') if deleted_desire and deleted_desire[0] else {}
     new_risk_index_count = count_index(new_risk[0], 'risk_index_list') if new_risk and new_risk[0] else {}
@@ -50,6 +50,9 @@ def build_output(state, result=2, fail_code=0, need_human=0):
     }
     return output
 
-async def send_result_to_spring(call_sid, output):
+# [개선] 파라미터 이름을 'call_sid' -> 'user_phone'으로 변경
+async def send_result_to_spring(user_phone, output):
+    # Spring Boot로 전송할 때 user_phone 정보를 추가할 수 있습니다.
+    output['user_phone'] = user_phone 
     async with httpx.AsyncClient() as client:
         await client.post(SPRING_BOOT_URL, json=output)

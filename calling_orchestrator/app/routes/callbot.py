@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request, Response, Body, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from app.models import UserData
-from app.services import redis_service, llm_service
+# 'classify_service'를 추가로 import 합니다.
+from app.services import redis_service, llm_service, classify_service
 from app.services.answer_service import save_answer, update_vulnerabilities
+# 세션 서비스 함수의 파라미터 이름이 변경됨에 따라 코드를 수정합니다.
 from app.services.session_service import save_session, get_session, clear_session
 from app.services.question_service import get_next_question
 from app.services.result_service import build_output, send_result_to_spring
@@ -85,10 +87,12 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
                     break
                 else:
                     try:
-                        llm_type = llm_service.classify_vulnerability(extra_answer)
+                        # [오류 수정] 올바른 함수(classify_answer)를 호출하고, 결과 형식에 맞게 값을 가져옵니다.
+                        classification_result = classify_service.classify_answer(extra_answer)
+                        llm_type = classification_result.get("category", "기타")
                     except Exception:
                         llm_type = "기타"
-                    state["risk_list"].append({"type": llm_type, "desc": extra_answer})
+                    state["risk_list"].append({"type": llm_type, "content": extra_answer}) # 'desc' -> 'content'로 키 이름 통일
                     state["current_idx"] = len(state["risk_list"]) - 1
                     await save_session(user_phone, state)
 
