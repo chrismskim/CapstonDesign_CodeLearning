@@ -3,7 +3,7 @@ uvicorn
 pydantic
 httpx
 redis
-twilio
+websockets
 grpcio
 grpcio-tools
 aiohttp
@@ -12,5 +12,4 @@ openai
 tqdm>=4.66.3
 python-dotenv
 openai-whisper
-gtts
 python-multipart
