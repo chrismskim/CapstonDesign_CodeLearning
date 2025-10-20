@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 음성상담 시스템</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #f0f2f5;
+        margin: 0;
+      }
+      .container {
+        text-align: center;
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+      }
+      p {
+        color: #666;
+        margin-bottom: 20px;
+      }
+      #status {
+        font-weight: bold;
+        font-size: 1.2em;
+        min-height: 30px;
+      }
+      .status-listening {
+        color: #28a745;
+      }
+      .status-speaking {
+        color: #007bff;
+      }
+      .status-connecting {
+        color: #ffc107;
+      }
+      .status-error {
+        color: #dc3545;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        font-size: 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      #transcript {
+        margin-top: 20px;
+        color: #555;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>AI 음성상담 시스템</h1>
+      <p>상담을 시작하려면 아래 버튼을 눌러주세요.</p>
+      <button id="startButton">상담 시작</button>
+      <div id="status" class="status-connecting">대기 중...</div>
+      <div id="transcript"></div>
+    </div>
+
+    <script>
+      const startButton = document.getElementById("startButton");
+      const statusDiv = document.getElementById("status");
+      const transcriptDiv = document.getElementById("transcript");
+      let websocket;
+
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = "ko-KR";
+      recognition.interimResults = false;
+      recognition.continuous = false;
+
+      startButton.onclick = () => {
+        const userPhone = prompt(
+          "테스트할 사용자의 전화번호를 입력하세요 (예: 01012345678):",
+          "01012345678"
+        );
+        if (!userPhone) return;
+
+        startButton.disabled = true;
+        statusDiv.textContent = "서버에 연결 중...";
+        statusDiv.className = "status-connecting";
+
+        websocket = new WebSocket(
+          `ws://localhost:8000/api/ws/call/${userPhone}`
+        );
+
+        websocket.onopen = () => {
+          console.log("WebSocket 연결 성공");
+          statusDiv.textContent =
+            "연결되었습니다. AI가 잠시 후 안내를 시작합니다.";
+        };
+
+        websocket.onmessage = (event) => {
+          const message = event.data;
+          console.log("서버로부터 메시지 수신:", message);
+          speak(message);
+        };
+
+        websocket.onclose = () => {
+          console.log("WebSocket 연결 종료");
+          statusDiv.textContent = "상담이 종료되었습니다.";
+          statusDiv.className = "";
+          startButton.disabled = false;
+        };
+
+        websocket.onerror = (error) => {
+          console.error("WebSocket 오류:", error);
+          statusDiv.textContent = "오류가 발생했습니다. 연결을 확인하세요.";
+          statusDiv.className = "status-error";
+          startButton.disabled = false;
+        };
+      };
+
+      function speak(text) {
+        statusDiv.textContent = "AI가 말하는 중...";
+        statusDiv.className = "status-speaking";
+        transcriptDiv.textContent = `🤖 AI: ${text}`;
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "ko-KR";
+
+        utterance.onend = () => {
+          startListening();
+        };
+
+        window.speechSynthesis.speak(utterance);
+      }
+
+      function startListening() {
+        statusDiv.textContent = "듣는 중... 말씀해주세요.";
+        statusDiv.className = "status-listening";
+        recognition.start();
+      }
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        console.log("사용자 답변(음성인식):", transcript);
+        transcriptDiv.textContent = `👤 나: ${transcript}`;
+
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+          websocket.send(transcript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error("음성 인식 오류:", event.error);
+        if (event.error === "no-speech") {
+          statusDiv.textContent =
+            "음성이 인식되지 않았습니다. 다시 말씀해주세요.";
+          setTimeout(startListening, 1000);
+        } else {
+          statusDiv.textContent = "음성 인식 중 오류가 발생했습니다.";
+          statusDiv.className = "status-error";
+        }
+      };
+    </script>
+  </body>
+</html>
