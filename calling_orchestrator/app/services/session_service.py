@@ -6,11 +6,12 @@ import redis.asyncio as redis
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 # Redis 기반 세션 관리
-async def save_session(call_sid: str, state: dict):
-    await redis_client.set(f"session:{call_sid}", json.dumps(state))
+# [개선] 파라미터 이름을 'call_sid' -> 'session_key'로 변경하여 가독성을 높였습니다.
+async def save_session(session_key: str, state: dict):
+    await redis_client.set(f"session:{session_key}", json.dumps(state))
 
-async def get_session(call_sid: str):
-    data = await redis_client.get(f"session:{call_sid}")
+async def get_session(session_key: str):
+    data = await redis_client.get(f"session:{session_key}")
     if data:
         return json.loads(data)
     return {
@@ -24,5 +25,5 @@ async def get_session(call_sid: str):
         "before_desire": []
     }
 
-async def clear_session(call_sid: str):
-    await redis_client.delete(f"session:{call_sid}")
+async def clear_session(session_key: str):
+    await redis_client.delete(f"session:{session_key}")
