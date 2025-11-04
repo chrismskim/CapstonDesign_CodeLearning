@@ -8,12 +8,14 @@ import os
 
 app = FastAPI()
 
-# static 폴더를 / 경로에 마운트하여 index.html을 기본 페이지로 제공 (추가)
-app.mount("/", StaticFiles(directory="app/static", html = True), name="static")
-
+# [수정] API 라우터를 먼저 등록해야 static 파일 마운트보다 우선순위를 가집니다.
 # 이제 'callbot_router'는 APIRouter 객체이므로 정상적으로 등록됩니다.
 app.include_router(callbot_router)
 app.include_router(result_forwarding_router)
+
+# static 폴더를 / 경로에 마운트하여 index.html을 기본 페이지로 제공 (추가)
+app.mount("/", StaticFiles(directory="app/static", html = True), name="static")
+
 
 if __name__ == "__main__":
     # 포트 번호를 8000으로 변경 (Redis 포트와 겹칠 수 있음)
