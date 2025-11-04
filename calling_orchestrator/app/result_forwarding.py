@@ -10,7 +10,6 @@ import os
 
 router = APIRouter()
 
-TWILIO_WEBHOOK_URL = os.getenv("TWILIO_WEBHOOK_URL", "https://caef-221-140-126-21.ngrok-free.app/api/twilio/voice")
 SPRING_BOOT_URL = os.getenv("SPRING_BOOT_URL", "http://localhost:8080/api/consult/result")
 
 # [POST] /api/send_llm_result
