@@ -9,11 +9,6 @@ def get_env_or_raise(key: str, default=None, required=False):
         raise RuntimeError(f"환경 변수 {key}가 설정되어 있지 않습니다. .env 파일을 확인하세요.")
     return value
 
-# --- 이 아래 4줄의 Twilio 관련 설정을 모두 삭제 ---
-# TWILIO_ACCOUNT_SID = get_env_or_raise("TWILIO_ACCOUNT_SID", required=True)
-# TWILIO_AUTH_TOKEN = get_env_or_raise("TWILIO_AUTH_TOKEN", required=True)
-# TWILIO_FROM_PHONE = get_env_or_raise("TWILIO_FROM_PHONE", required=True)
-# TWILIO_WEBHOOK_URL = get_env_or_raise("TWILIO_WEBHOOK_URL", required=True)
 
 REDIS_HOST = get_env_or_raise("REDIS_HOST", "localhost")
 REDIS_PORT = int(get_env_or_raise("REDIS_PORT", 6379))
