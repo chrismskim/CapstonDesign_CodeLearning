@@ -1,26 +1,13 @@
 package voicebot.management.account.dto;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
-@Getter
-@Setter
-public class AccountDTO {
-    @NotBlank
-    @Size(max = 20)
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+public class AccountDto {
     private String userId;
-
-    @NotBlank
-    @Size(max = 16)
-    private String password;
-
-    @NotBlank
-    private String phoneNumber;
-
-    @Email
-    @NotBlank
+    private boolean isRoot;
+    private boolean isApproved;
     private String email;
-} 
+    private String phoneNumber;
+}
+

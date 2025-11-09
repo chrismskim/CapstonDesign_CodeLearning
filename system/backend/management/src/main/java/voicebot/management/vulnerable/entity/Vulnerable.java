@@ -15,10 +15,10 @@ import java.util.List;
 @Builder
 public class Vulnerable {
     @Id
-    private String userId;  // 예: "U20250521"
+    private String userId;
 
     private String name;
-    private String gender; // "M", "F"
+    private String gender;
     private LocalDate birthDate;
     private String phoneNumber;
 

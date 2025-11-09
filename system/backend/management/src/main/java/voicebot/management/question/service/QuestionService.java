@@ -7,6 +7,7 @@ import voicebot.management.question.dto.*;
 import voicebot.management.question.entity.*;
 import voicebot.management.question.repository.QuestionSetRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,10 +36,22 @@ public class QuestionService {
 
     public QuestionSetDto create(QuestionSetDto dto) {
         log.info("[QUESTION][SERVICE][CREATE] 생성 요청: {}", dto.getId());
+
+        if (dto.getId() == null || dto.getId().isEmpty()) {
+            List<QuestionSet> all = repository.findAll();
+            int max = all.stream()
+                    .map(q -> q.getId().replace("Q", ""))
+                    .mapToInt(Integer::parseInt)
+                    .max()
+                    .orElse(0);
+            dto.setId(String.format("Q%03d", max + 1));
+        }
+
         if (repository.existsById(dto.getId())) {
             log.warn("[QUESTION][SERVICE][CREATE] 중복 ID: {}", dto.getId());
             throw new IllegalStateException("이미 존재하는 questionId입니다.");
         }
+
         QuestionSet saved = repository.save(toEntity(dto));
         log.info("[QUESTION][SERVICE][CREATE] 저장 완료: {}", saved.getId());
         return toDto(saved);
@@ -68,26 +81,27 @@ public class QuestionService {
     }
 
     private QuestionSet toEntity(QuestionSetDto dto) {
-        List<QuestionItem> flow = dto.getFlow().stream().map(q -> {
-            List<ExpectedResponse> erList = q.getExpectedResponse().stream().map(er ->
-                    ExpectedResponse.builder()
-                            .text(er.getText())
-                            .responseTypeList(er.getResponseTypeList() == null ? null :
-                                    er.getResponseTypeList().stream().map(rt ->
-                                            ResponseTypeInfo.builder()
-                                                    .responseType(rt.getResponseType())
-                                                    .responseIndex(rt.getResponseIndex())
-                                                    .build()
-                                    ).toList()
-                            )
-                            .build()
-            ).toList();
+        List<QuestionItem> flow = dto.getFlow() == null ? Collections.emptyList() :
+                dto.getFlow().stream().map(q -> {
+                    List<ExpectedResponse> erList = q.getExpectedResponse() == null ? Collections.emptyList() :
+                            q.getExpectedResponse().stream().map(er ->
+                                    ExpectedResponse.builder()
+                                            .text(er.getText())
+                                            .responseTypeList(er.getResponseTypeList() == null ? Collections.emptyList() :
+                                                    er.getResponseTypeList().stream().map(rt ->
+                                                                    ResponseTypeInfo.builder()
+                                                                            .responseType(rt.getResponseType())
+                                                                            .responseIndex(rt.getResponseIndex())
+                                                                            .build())
+                                                            .toList())
+                                            .build()
+                            ).toList();
 
-            return QuestionItem.builder()
-                    .text(q.getText())
-                    .expectedResponse(erList)
-                    .build();
-        }).toList();
+                    return QuestionItem.builder()
+                            .text(q.getText())
+                            .expectedResponse(erList)
+                            .build();
+                }).toList();
 
         return QuestionSet.builder()
                 .id(dto.getId())
@@ -98,26 +112,27 @@ public class QuestionService {
     }
 
     private QuestionSetDto toDto(QuestionSet entity) {
-        List<QuestionItemDto> flow = entity.getFlow().stream().map(q -> {
-            List<ExpectedResponseDto> erList = q.getExpectedResponse().stream().map(er ->
-                    ExpectedResponseDto.builder()
-                            .text(er.getText())
-                            .responseTypeList(er.getResponseTypeList() == null ? null :
-                                    er.getResponseTypeList().stream().map(rt ->
-                                            ResponseTypeInfoDto.builder()
-                                                    .responseType(rt.getResponseType())
-                                                    .responseIndex(rt.getResponseIndex())
-                                                    .build()
-                                    ).toList()
-                            )
-                            .build()
-            ).toList();
+        List<QuestionItemDto> flow = entity.getFlow() == null ? Collections.emptyList() :
+                entity.getFlow().stream().map(q -> {
+                    List<ExpectedResponseDto> erList = q.getExpectedResponse() == null ? Collections.emptyList() :
+                            q.getExpectedResponse().stream().map(er ->
+                                    ExpectedResponseDto.builder()
+                                            .text(er.getText())
+                                            .responseTypeList(er.getResponseTypeList() == null ? Collections.emptyList() :
+                                                    er.getResponseTypeList().stream().map(rt ->
+                                                                    ResponseTypeInfoDto.builder()
+                                                                            .responseType(rt.getResponseType())
+                                                                            .responseIndex(rt.getResponseIndex())
+                                                                            .build())
+                                                            .toList())
+                                            .build()
+                            ).toList();
 
-            return QuestionItemDto.builder()
-                    .text(q.getText())
-                    .expectedResponse(erList)
-                    .build();
-        }).toList();
+                    return QuestionItemDto.builder()
+                            .text(q.getText())
+                            .expectedResponse(erList)
+                            .build();
+                }).toList();
 
         return QuestionSetDto.builder()
                 .id(entity.getId())
