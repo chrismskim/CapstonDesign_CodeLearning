@@ -22,7 +22,7 @@ spring:
 
 orchestrator:
   api:
-    base-url: "http://127.0.0.1:8001"
+    base-url: "http://127.0.0.1:8000"
 
 server:
   port: 8080
