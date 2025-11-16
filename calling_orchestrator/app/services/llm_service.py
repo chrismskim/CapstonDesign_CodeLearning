@@ -1,8 +1,6 @@
-# C:\...\CapstonDesign_CodeLearning\calling_orchestrator\app\services\llm_service.py
-
 import os
 from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 # (기타 필요한 import ... )
 
 # ChatOpenAI 객체 초기화 (아마도 이 파일 어딘가에 있을 것입니다)
