@@ -1,34 +1,44 @@
-from langchain_openai import ChatOpenAI
-from app.config import LANGCHAIN_API_KEY
+# C:\...\CapstonDesign_CodeLearning\calling_orchestrator\app\services\llm_service.py
+
 import os
+from langchain_openai import ChatOpenAI
+from langchain.prompts import PromptTemplate
+# (기타 필요한 import ... )
 
-os.environ["OPENAI_API_KEY"] = LANGCHAIN_API_KEY
+# ChatOpenAI 객체 초기화 (아마도 이 파일 어딘가에 있을 것입니다)
+chat = ChatOpenAI(
+    model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"), # .env에 모델 이름이 없다면 gpt-3.5-turbo 사용
+    temperature=0.7,
+    # OPENAI_API_KEY는 환경 변수에서 자동으로 읽어옵니다.
+)
 
-#(gpt-3.5-turbo)로 지정
-chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+# ... (파일의 다른 코드들) ...
 
-def generate_response(user_input: str) -> str:
-    return chat.predict(user_input)
+def update_vulnerable_list(risk_list, user_text):
 
-def is_resolved(item: str, answer: str) -> bool:
+    # 프롬프트 정의 (예시입니다. 실제 코드에 맞게 수정하세요)
+    prompt_template = """
+    기존 위험 목록: {risk_list}
+    사용자 발화: {user_text}
+    
+    사용자 발화를 바탕으로 기존 위험 목록을 업데이트하세요.
+    (여기에 실제 프롬프트 내용이 들어갑니다...)
     """
-    LLM을 이용해 답변이 해당 문제(예: 주거문제)가 해결되었는지 판별
-    """
-    prompt = f'"{item}"에 대해 "{answer}"라는 답변이 문제 해결을 의미합니까? "예" 또는 "아니오"로만 답하세요.'
-    result = chat.predict(prompt)
-    return "예" in result
+    
+    prompt = PromptTemplate.from_template(prompt_template).format(
+        risk_list=risk_list, 
+        user_text=user_text
+    )
 
-def update_vulnerable_list(vulnerable_list: list, extra: str) -> list:
-    """
-    LLM을 이용해 추가 불편사항을 vulnerable_list에 반영
-    """
-    prompt = f'기존 취약 리스트: {vulnerable_list}\n추가 불편사항: {extra}\n이 정보를 반영해 새로운 취약 리스트를 파이썬 리스트 형태로 출력하세요.'
-    result = chat.predict(prompt)
+
+    response = chat.invoke(prompt)
+    result = response.content
+
     try:
-        # LLM이 파이썬 리스트 형태로 반환한다고 가정
-        new_list = eval(result)
-        if isinstance(new_list, list):
-            return new_list
-    except Exception:
-        pass
-    return vulnerable_list
+        
+        updated_list = result.split("\n") # (이 부분은 실제 로직에 맞게 수정 필요)
+        return result # (기존 코드의 반환 타입에 맞게 수정하세요)
+    
+    except Exception as e:
+        print(f"LLM 응답 파싱 중 오류 발생: {e}")
+        return risk_list # 오류 발생 시 기존 리스트 반환

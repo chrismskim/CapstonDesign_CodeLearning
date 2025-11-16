@@ -1,13 +1,16 @@
-def count_index(list_items, index_field):
-    count = {}
-    for item in list_items:
-        for idx in getattr(item, index_field):
-            count[str(idx)] = count.get(str(idx), 0) + 1
-    return count
+def diff_list(before: list, after: list, key: str = "content"):
+    
+    # === 수정된 부분 ===
+    # getattr(x, key) 대신 x[key]를 사용하여 딕셔너리 값에 접근합니다.
+    before_set = set(x[key] for x in before)
+    after_set = set(x[key] for x in after)
+    # === 수정 완료 ===
 
-def diff_list(before, after, key='content'):
-    before_set = set(getattr(x, key) for x in before)
-    after_set = set(getattr(x, key) for x in after)
-    deleted = [x for x in before if getattr(x, key) not in after_set]
-    new = [x for x in after if getattr(x, key) not in before_set]
-    return deleted, new
+    deleted = before_set - after_set
+    added = after_set - before_set
+
+    # 원래 딕셔너리 구조를 유지하며 반환
+    deleted_items = [item for item in before if item[key] in deleted]
+    added_items = [item for item in after if item[key] in added]
+
+    return deleted_items, added_items
