@@ -10,6 +10,7 @@ from app.services.question_service import get_next_question
 from app.services.result_service import build_output, send_result_to_spring
 import time
 import os
+import traceback # 오류 추적을 위해 추가
 
 SPRING_BOOT_URL = os.getenv("SPRING_BOOT_URL", "http://localhost:8080/api/consult/result")
 
@@ -27,14 +28,14 @@ async def receive_user_data(user: UserData):
             "start_time": time.time(),
             "before_risk": [r.model_dump() for r in user.vulnerabilities.risk_list],
             "before_desire": [d.model_dump() for d in user.vulnerabilities.desire_list],
-            "user_phone": user.phone
+            "user_phone": user.phone,
+            "need_human": 0 # [추가] 상담사 연결 요청 플래그
         }
         await save_session(user.phone, session_data)
         question_data = jsonable_encoder(user.question_list)
         await redis_service.save_question_list(question_data)
         return {"result": "상담 데이터 저장 완료, 웹소켓 연결 대기중", "user_phone": user.phone}
     except Exception as e:
-        import traceback
         tb = traceback.format_exc()
         print(f"[ERROR /api/receive] {e}\n{tb}")
         raise HTTPException(status_code=500, detail=f"{str(e)}\n{tb}")
@@ -50,61 +51,154 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
         return
 
     try:
+        # === 1단계: 인사 ===
         greeting = "안녕하십니까? AI 보이스 봇 입니다. 몇가지 궁금한 상황에 대해 여쭈어 보겠습니다."
         await websocket.send_text(greeting)
         
         risk_list = state.get("risk_list", [])
-        question = get_next_question(risk_list, 0) if risk_list else "드릴 질문이 없습니다. 상담을 종료합니다."
-        await websocket.send_text(question)
-        state["script"].append(f"Q: {question}")
-        
-        async for user_text in websocket.iter_text():
-            question_asked = get_next_question(risk_list, state.get("current_idx", 0))
-            save_answer(state, question_asked, user_text)
+        state["current_idx"] = 0 # 인덱스 초기화
+
+        # === 2단계: 기존 위기/욕구 목록 확인 루프 ===
+        while state["current_idx"] < len(risk_list):
+            current_idx = state["current_idx"]
+            # [수정] risk_list[current_idx]가 딕셔너리인지 확인
+            if not isinstance(risk_list[current_idx], dict) or 'content' not in risk_list[current_idx]:
+                print(f"잘못된 risk_list 항목: {risk_list[current_idx]}. 스킵합니다.")
+                state["current_idx"] += 1
+                continue
+
+            question_content = risk_list[current_idx]['content']
+            question = f"{current_idx + 1}번째 질문입니다. '{question_content}' 문제는 아직도 해결되지 않으셨나요?"
             
+            await websocket.send_text(question)
+            state["script"].append(f"Q: {question}")
+            
+            user_text = await websocket.receive_text()
+            save_answer(state, question, user_text)
+
+            # [MOD 1] 문제가 해결되었는지 간단히 확인
+            is_resolved = any(keyword in user_text for keyword in ["해결", "없", "아니", "괜찮"])
+
+            if not is_resolved:
+                # 1-A. 문제가 해결되지 않음 (예: "네, 그대로입니다")
+                help_question = f"'{question_content}' 문제 해결을 위해 전문 상담사를 연결해 드릴까요?"
+                await websocket.send_text(help_question)
+                state["script"].append(f"Q: {help_question}")
+
+                help_answer = await websocket.receive_text()
+                save_answer(state, help_question, help_answer)
+                
+                if any(keyword in help_answer for keyword in ["네", "예", "연결", "필요"]):
+                    state["need_human"] = 1 # 1 = 사용자 요청
+                    state["script"].append(f"(사용자가 '{question_content}' 관련 상담사 연결 요청함)")
+            
+            # 1-B. 문제가 해결됨 (예: "해결 되었습니다")
+            # (else: is_resolved) -> 아무것도 안하고 다음 질문으로 넘어감
+
+            # (공통) 사용자의 답변을 기반으로 리스트 업데이트 (기존 로직 유지)
             updated_risk_list, updated_desire_list = update_vulnerabilities(state["risk_list"], state["desire_list"], user_text)
             state["risk_list"] = updated_risk_list
             state["desire_list"] = updated_desire_list
-            
+
+            # 다음 질문으로 이동
             state["current_idx"] += 1
             await save_session(user_phone, state)
-
-            next_question = get_next_question(updated_risk_list, state["current_idx"])
             
-            if next_question:
-                await websocket.send_text(next_question)
-            else:
-                await websocket.send_text("추가로 불편한 점이 있으신가요? 있다면 말씀해주시고, 없다면 '없다'고 말씀해주세요.")
-                
-                extra_answer = await websocket.receive_text()
-                save_answer(state, "추가로 불편한 점이 있으신가요?", extra_answer)
+            # 업데이트된 리스트를 기준으로 다음 루프를 돌아야 하므로 risk_list 갱신
+            risk_list = state.get("risk_list", [])
 
-                if "없" in extra_answer:
-                    await websocket.send_text("상담을 종료합니다. 감사합니다.")
-                    output = build_output(state)
-                    await send_result_to_spring(user_phone, output)
-                    await clear_session(user_phone)
-                    break
-                else:
-                    try:
-                        # [오류 수정] 올바른 함수(classify_answer)를 호출하고, 결과 형식에 맞게 값을 가져옵니다.
-                        classification_result = classify_service.classify_answer(extra_answer)
-                        llm_type = classification_result.get("category", "기타")
-                    except Exception:
-                        llm_type = "기타"
-                    state["risk_list"].append({"type": llm_type, "content": extra_answer}) # 'desc' -> 'content'로 키 이름 통일
-                    state["current_idx"] = len(state["risk_list"]) - 1
-                    await save_session(user_phone, state)
+        # === 3단계: 추가 불편 사항 질문 루프 ===
+        while True:
+            extra_question = "추가로 불편한 점이 있으신가요? 있다면 말씀해주시고, 없다면 '없다'고 말씀해주세요."
+            await websocket.send_text(extra_question)
+            
+            extra_answer = await websocket.receive_text()
+            save_answer(state, extra_question, extra_answer)
 
-                    new_question = get_next_question(state["risk_list"], state["current_idx"])
-                    await websocket.send_text(new_question)
+            if any(keyword in extra_answer for keyword in ["없", "아니", "괜찮"]):
+                # (예: "아니요 없습니다.") -> 루프 종료
+                break
+            
+            # [MOD 2] 신규 문제가 있음 (예: "요즘 허리가 않좋습니다.")
+            
+            # 1. 상세 질문 (예: "얼만큼 안 좋으신가요?")
+            detail_question = "얼만큼 안 좋으신가요? 통증 정도를 0에서 10으로 말씀해주시고, 기간도 함께 말씀해주세요."
+            await websocket.send_text(detail_question)
+            state["script"].append(f"Q: {detail_question}")
+            
+            detail_answer = await websocket.receive_text()
+            save_answer(state, detail_question, detail_answer)
+            # (예: "통증 정도는 5이고, 5일 정도 되었습니다.")
+
+            # 2. LLM을 이용해 문제 카테고리화 (예: "허리 통증")
+            try:
+                prompt = f"다음 사용자 불편 사항을 2-3 단어의 명사형(예: '허리 통증', '경제적 어려움')으로 요약해줘: '{extra_answer} {detail_answer}'"
+                # llm_service.py에 추가한 generate_response 함수 사용
+                problem_category = llm_service.generate_response(prompt)
+                if not problem_category: # LLM 실패 시 fallback
+                    problem_category = extra_answer[:10] + "..."
+            except Exception as e:
+                print(f"LLM 요약 실패: {e}")
+                problem_category = extra_answer[:10] + "..." # Fallback
+            
+            # 3. 카테고리화된 문제로 후속 질문 (예: "'허리 통증' 관련하여...")
+            offer_help_question = f"혹시, '{problem_category}' 관련하여 상담사 연결이 필요하신가요?"
+            await websocket.send_text(offer_help_question)
+            state["script"].append(f"Q: {offer_help_question}")
+            
+            offer_help_answer = await websocket.receive_text()
+            save_answer(state, offer_help_question, offer_help_answer)
+
+            if any(keyword in offer_help_answer for keyword in ["네", "예", "연결", "필요"]):
+                state["need_human"] = 1 # 1 = 사용자 요청
+                state["script"].append(f"(사용자가 '{problem_category}' 관련 상담사 연결 요청함)")
+
+            # (예: "아니요 괜찮습니다.")
+
+            # 4. 분석된 신규 문제를 최종 결과에 포함하기 위해 state에 저장
+            new_problem_content = f"{problem_category}: {extra_answer} ({detail_answer})"
+            # (분류 로직은 classify_service를 활용하거나 단순화)
+            classification_result = classify_service.classify_answer(new_problem_content)
+            problem_type = classification_result.get("type", -1)
+
+            if problem_type == 1: # 위기
+                 state["risk_list"].append({"risk_index_list": [classification_result.get("category_index", 99)], "content": new_problem_content})
+            else: # 욕구 또는 기타 (심층상담 포함)
+                 state["desire_list"].append({"desire_type": [classification_result.get("category_index", 99)], "content": new_problem_content})
+            
+            if problem_type == 3: # 심층상담
+                state["need_human"] = 2 # 2 = 중대사항 발견
+
+            await save_session(user_phone, state)
+            
+            # [MOD 3] 루프 처음으로 돌아가 "추가로 불편한 점이..." 다시 질문
+
+        # === 4단계: 상담 종료 ===
+        await websocket.send_text("상담을 종료합니다. 감사합니다.")
+        output = build_output(state, result=1, need_human=state.get("need_human", 0)) # result=1 (상담 양호)
+        
+        # need_human이 1(요청) 또는 2(중대)이면 result=2(심층상담필요)로 변경
+        if state.get("need_human", 0) > 0:
+            output["result"] = 2 
+
+        await send_result_to_spring(user_phone, output)
+        await clear_session(user_phone)
 
     except WebSocketDisconnect:
         print(f"클라이언트 연결이 끊어졌습니다: {user_phone}")
+        # 연결 끊어짐 (fail_code=5)
+        output = build_output(state, result=0, fail_code=5, need_human=state.get("need_human", 0))
+        await send_result_to_spring(user_phone, output)
+        await clear_session(user_phone)
+    
     except Exception as e:
-        import traceback
         tb = traceback.format_exc()
         print(f"[ERROR /api/ws/call] {e}\n{tb}")
+        # 기타 오류 (fail_code=99)
+        output = build_output(state, result=0, fail_code=99, need_human=state.get("need_human", 0))
+        await send_result_to_spring(user_phone, output)
+        await clear_session(user_phone)
+
     finally:
         if websocket.client_state.name != 'DISCONNECTED':
              await websocket.close()
