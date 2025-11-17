@@ -48,4 +48,3 @@ def update_vulnerable_list(risk_list, user_text):
     except Exception as e:
         print(f"LLM 응답 파싱 중 오류 발생: {e}")
         return risk_list # 오류 발생 시 기존 리스트 반환
-}
