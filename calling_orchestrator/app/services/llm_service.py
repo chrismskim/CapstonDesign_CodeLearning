@@ -1,16 +1,24 @@
 import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-# (기타 필요한 import ... )
 
-# ChatOpenAI 객체 초기화 (아마도 이 파일 어딘가에 있을 것입니다)
 chat = ChatOpenAI(
     model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"), # .env에 모델 이름이 없다면 gpt-3.5-turbo 사용
     temperature=0.7,
-    # OPENAI_API_KEY는 환경 변수에서 자동으로 읽어옵니다.
 )
 
-# ... (파일의 다른 코드들) ...
+def generate_response(prompt: str) -> str:
+    """
+    주어진 프롬프트를 기반으로 LLM 응답을 생성합니다.
+    """
+    try:
+        response = chat.invoke(prompt)
+        result = response.content
+        # LLM 응답에서 불필요한 따옴표 제거 (예: "허리 통증" -> 허리 통증)
+        return result.strip().strip("'\"")
+    except Exception as e:
+        print(f"LLM generate_response 오류: {e}")
+        return "" # 오류 시 빈 문자열 반환
 
 def update_vulnerable_list(risk_list, user_text):
 
@@ -40,3 +48,4 @@ def update_vulnerable_list(risk_list, user_text):
     except Exception as e:
         print(f"LLM 응답 파싱 중 오류 발생: {e}")
         return risk_list # 오류 발생 시 기존 리스트 반환
+}
