@@ -1,6 +1,7 @@
 package voicebot.management.call.service;
 
 import voicebot.management.call.dto.ConsultationStatusDto;
+import voicebot.management.call.dto.LlmResultDto;
 import voicebot.management.call.dto.QueueItem;
 import voicebot.management.call.dto.VulnerableResponse;
 
@@ -32,4 +33,7 @@ public interface CallService {
      * @return 대기열에 있는 모든 항목의 상태 목록
      */
     List<ConsultationStatusDto> getQueueStatus();
+
+    void handleLlmResult(LlmResultDto resultDto);
+
 } 

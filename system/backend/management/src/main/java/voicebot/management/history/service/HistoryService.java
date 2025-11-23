@@ -8,7 +8,8 @@ import voicebot.management.history.entity.Consultation;
 import java.util.Optional;
 
 public interface HistoryService {
+
     Page<CallHistoryDto> getCallHistory(String searchTerm, Integer sIndex, Pageable pageable);
 
     Optional<Consultation> getCallHistoryDetail(String callId);
-} 
+}

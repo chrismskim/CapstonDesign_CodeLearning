@@ -35,6 +35,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
                         .requestMatchers("/api/auth/**", "/api/account/register").permitAll()
                         .requestMatchers("/api/call/sse/**").permitAll()
+                        .requestMatchers("/api/question/**").permitAll()
+                        .requestMatchers("/api/call/send_llm_result").permitAll()
                         .requestMatchers("/api/vulnerable/**", "/api/questions/**").permitAll()
                         .requestMatchers("/api/account/approve").hasRole("ROOT")
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

@@ -4,7 +4,6 @@ import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { mockCallLogs } from "@/lib/mock-data"
 import type { CallLog, Stats } from "@/types"
 import {
   Users,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react"
 import SimpleBarChart from "@/components/simple-bar-chart"
 import { getRiskTypeLabel, getDesireTypeLabel } from "@/lib/consultation-types"
+import { fetchFromApi } from "@/lib/api"
 
 const calculateStats = (logs: CallLog[]): Stats => {
   if (logs.length === 0) {
@@ -51,18 +51,19 @@ const calculateStats = (logs: CallLog[]): Stats => {
     critical: logs.filter((log) => log.need_human === 2).length,
   }
 
-  const totalRuntime = logs.reduce((sum, log) => sum + log.runtime, 0)
+  const totalRuntime = logs.reduce((sum, log) => sum + (log.runtime ?? 0), 0)
   const averageRuntime = totalConsultations > 0 ? totalRuntime / totalConsultations : 0
 
   const aggregatedRiskCounts: Record<string, number> = {}
   const aggregatedDesireCounts: Record<string, number> = {}
 
   logs.forEach((log) => {
-    if (log.result_vulnerabilities) {
-      Object.entries(log.result_vulnerabilities.risk_index_count || {}).forEach(([index, count]) => {
+    const v = log.result_vulnerabilities
+    if (v) {
+      Object.entries(v.risk_index_count || {}).forEach(([index, count]) => {
         aggregatedRiskCounts[index] = (aggregatedRiskCounts[index] || 0) + count
       })
-      Object.entries(log.result_vulnerabilities.desire_index_count || {}).forEach(([index, count]) => {
+      Object.entries(v.desire_index_count || {}).forEach(([index, count]) => {
         aggregatedDesireCounts[index] = (aggregatedDesireCounts[index] || 0) + count
       })
     }
@@ -106,7 +107,6 @@ interface DistributionBarItem {
   value: number
   color: string
   icon?: React.ElementType
-  // barLabel: string; // Removed as per user request
 }
 
 const DistributionBar: React.FC<{ items: DistributionBarItem[]; maxValue: number }> = ({ items, maxValue }) => {
@@ -124,15 +124,14 @@ const DistributionBar: React.FC<{ items: DistributionBarItem[]; maxValue: number
                 item.value > 0 && (item.label === "심층 상담 필요" || item.label === "중대 취약 정보 발견")
                   ? "destructive"
                   : item.value > 0 && item.label === "대상자 상담 요청"
-                    ? "outline" // "warning" -> "outline" 으로 변경 (Badge에서 허용되는 값)
-                    : "secondary"
+                  ? "outline"
+                  : "secondary"
               }
             >
               {item.value} 건
             </Badge>
           </div>
           <div className="flex items-center">
-            {/* Removed the barLabel span */}
             <div className="flex-1 bg-muted rounded-sm h-3 overflow-hidden">
               <div
                 style={{ width: maxValue > 0 ? `${(item.value / maxValue) * 100}%` : "0%" }}
@@ -148,20 +147,99 @@ const DistributionBar: React.FC<{ items: DistributionBarItem[]; maxValue: number
 
 export default function StatisticsPage() {
   const [selectedRound, setSelectedRound] = React.useState<string>("all")
-  const [stats, setStats] = React.useState<Stats>(calculateStats(mockCallLogs))
+  const [logs, setLogs] = React.useState<CallLog[]>([])
+  const [stats, setStats] = React.useState<Stats>(() => calculateStats([]))
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
 
-  const uniqueRounds = React.useMemo(() => {
-    const rounds = new Set(mockCallLogs.map((log) => log.s_index))
-    return Array.from(rounds).sort((a, b) => a - b)
+  // 상담 이력 전체 불러오기
+  React.useEffect(() => {
+    const fetchLogs = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const listRes = await fetchFromApi("/call/history?page=0&size=1000&sort=time,desc")
+
+        const list = (listRes.content ?? []) as { id: string }[]
+
+        const detailPromises = list.map((item) =>
+          fetchFromApi(`/call/history/${item.id}`)
+        )
+
+        const details = await Promise.all(detailPromises)
+
+        const parsed: CallLog[] = details.map((res: any) => ({
+          id: res.id,
+          account_id: res.account_id ?? res.accountId ?? "",
+          s_index: res.s_index ?? res.sIndex ?? 0,
+          v_id: res.v_id ?? res.vulnerableId ?? "",
+          q_id: res.q_id ?? res.questionSetId ?? "",
+          time: res.time,
+          runtime: res.runtime ?? 0,
+
+          overall_script: res.overall_script ?? res.overallScript ?? "",
+          summary: res.summary ?? "",
+
+          result: res.result ?? 0,
+          fail_code: res.fail_code ?? res.failCode ?? 0,
+          need_human: res.need_human ?? res.needHuman ?? 0,
+
+          result_vulnerabilities: res.result_vulnerabilities
+            ? {
+                risk_list: res.result_vulnerabilities.risk_list ?? [],
+                desire_list: res.result_vulnerabilities.desire_list ?? [],
+                risk_index_count: res.result_vulnerabilities.risk_index_count ?? {},
+                desire_index_count: res.result_vulnerabilities.desire_index_count ?? {},
+              }
+            : undefined,
+
+          delete_vulnerabilities: res.delete_vulnerabilities
+            ? {
+                risk_list: res.delete_vulnerabilities.risk_list ?? [],
+                desire_list: res.delete_vulnerabilities.desire_list ?? [],
+                risk_index_count: res.delete_vulnerabilities.risk_index_count ?? {},
+                desire_index_count: res.delete_vulnerabilities.desire_index_count ?? {},
+              }
+            : undefined,
+
+          new_vulnerabilities: res.new_vulnerabilities
+            ? {
+                risk_list: res.new_vulnerabilities.risk_list ?? [],
+                desire_list: res.new_vulnerabilities.desire_list ?? [],
+                risk_index_count: res.new_vulnerabilities.risk_index_count ?? {},
+                desire_index_count: res.new_vulnerabilities.desire_index_count ?? {},
+              }
+            : undefined,
+        }))
+
+        setLogs(parsed)
+        setStats(calculateStats(parsed))
+      } catch (e: any) {
+        console.error("통계용 상담 이력 조회 실패:", e)
+        setError(e?.message ?? "상담 이력 데이터를 불러오지 못했습니다.")
+        setLogs([])
+        setStats(calculateStats([]))
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchLogs()
   }, [])
 
   React.useEffect(() => {
     const logsToProcess =
       selectedRound === "all"
-        ? mockCallLogs
-        : mockCallLogs.filter((log) => log.s_index === Number.parseInt(selectedRound))
+        ? logs
+        : logs.filter((log) => log.s_index === Number.parseInt(selectedRound))
+
     setStats(calculateStats(logsToProcess))
-  }, [selectedRound])
+  }, [selectedRound, logs])
+
+  const uniqueRounds = React.useMemo(() => {
+    const rounds = new Set(logs.map((log) => log.s_index))
+    return Array.from(rounds).sort((a, b) => a - b)
+  }, [logs])
 
   const consultationResultItems: DistributionBarItem[] = [
     {
@@ -169,21 +247,18 @@ export default function StatisticsPage() {
       value: stats.byResult.notPossible,
       color: "bg-red-500",
       icon: XCircle,
-      // barLabel: "상담 불가", // Removed
     },
     {
       label: "상담 양호 (조치 불필요)",
       value: stats.byResult.noActionNeeded,
       color: "bg-green-500",
       icon: CheckCircle2,
-      // barLabel: "상담 양호", // Removed
     },
     {
       label: "심층 상담 필요",
       value: stats.byResult.deepDiveNeeded,
       color: "bg-yellow-500",
       icon: AlertTriangle,
-      // barLabel: "심층 필요", // Removed
     },
   ]
   const maxConsultationResultValue = Math.max(...consultationResultItems.map((item) => item.value), 1)
@@ -194,21 +269,18 @@ export default function StatisticsPage() {
       value: stats.byNeedHuman.none,
       color: "bg-gray-400",
       icon: UserCheck,
-      // barLabel: "지원 불필요", // Removed
     },
     {
       label: "대상자 상담 요청",
       value: stats.byNeedHuman.requested,
       color: "bg-orange-400",
       icon: UserX,
-      // barLabel: "상담 요청", // Removed
     },
     {
       label: "중대 취약 정보 발견",
       value: stats.byNeedHuman.critical,
       color: "bg-red-600",
       icon: MessageSquareWarning,
-      // barLabel: "중대 정보", // Removed
     },
   ]
   const maxNeedHumanValue = Math.max(...needHumanItems.map((item) => item.value), 1)
@@ -252,6 +324,9 @@ export default function StatisticsPage() {
           </Select>
         </div>
       </header>
+
+      {isLoading && <p className="text-sm text-muted-foreground">데이터 로딩 중...</p>}
+      {error && <p className="text-sm text-red-500">에러: {error}</p>}
 
       <Card>
         <CardHeader>

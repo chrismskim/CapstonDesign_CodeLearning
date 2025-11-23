@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation" 
 import * as React from "react"
 import {
   Users,
@@ -37,8 +37,33 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true)
+  const [isChecked, setIsChecked] = React.useState(false)
 
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const token = localStorage.getItem("accessToken")
+
+    if (!token) {
+      router.replace("/login")
+    } else {
+      setIsChecked(true)
+    }
+  }, [router])
+  
+  const handleLogout = React.useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("accessToken")
+      localStorage.removeItem("refreshToken")
+    }
+
+    router.push("/login")
+  }, [router])
+    if (!isChecked) {
+    return null
+  }
   return (
     <TooltipProvider>
       <div className="flex min-h-screen w-full bg-muted/40">
@@ -86,15 +111,14 @@ export default function DashboardLayout({
           <div className="mt-auto border-t p-2">
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <Link href="/login">
-                  <Button
-                    variant="ghost"
-                    className={cn("w-full justify-start", !isSidebarOpen && "justify-center")}
-                  >
-                    <LogOut className={cn("h-5 w-5", isSidebarOpen && "mr-2")} />
-                    {isSidebarOpen ? "로그아웃" : <span className="sr-only">로그아웃</span>}
-                  </Button>
-                </Link>
+                <Button
+                  variant="ghost"
+                  className={cn("w-full justify-start", !isSidebarOpen && "justify-center")}
+                  onClick={handleLogout}
+                >
+                  <LogOut className={cn("h-5 w-5", isSidebarOpen && "mr-2")} />
+                  {isSidebarOpen ? "로그아웃" : <span className="sr-only">로그아웃</span>}
+                </Button>
               </TooltipTrigger>
               {!isSidebarOpen && <TooltipContent side="right">로그아웃</TooltipContent>}
             </Tooltip>

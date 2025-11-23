@@ -67,6 +67,20 @@ const mockVulnerableIndividuals: VulnerableIndividual[] = [];
 
 
 export default function VulnerablePage() {
+  
+  const mapToTableItems = (response: any[]): VulnerableTableItem[] =>
+  response.map((item: any) => ({
+    user_id: item.userId,
+    name: item.name,
+    gender: item.gender,
+    birth_date: item.birthDate,
+    phone_number: item.phoneNumber,
+    address_summary: `${item.address.state} ${item.address.city} ${item.address.address1}`,
+    summary: item.vulnerabilities?.summary || "",
+    riskCount: item.vulnerabilities?.riskList?.length || 0,
+    desireCount: item.vulnerabilities?.desireList?.length || 0,
+  }));
+
   const [searchTerm, setSearchTerm] = React.useState("")
   const [data, setData] = React.useState<VulnerableTableItem[]>(mockVulnerableTableData)
   const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set())
@@ -89,17 +103,7 @@ export default function VulnerablePage() {
     const fetchData = async () => {
       try {
         const response = await fetchFromApi("/vulnerable/list");
-        const parsed = response.map((item: any) => ({
-          user_id: item.userId,
-          name: item.name,
-          gender: item.gender,
-          birth_date: item.birthDate,
-          phone_number: item.phoneNumber,
-          address_summary: `${item.address.state} ${item.address.city} ${item.address.address1}`,
-          summary: item.vulnerabilities.summary,
-          riskCount: item.vulnerabilities.riskList.length,
-          desireCount: item.vulnerabilities.desireList.length,
-        }));
+        const parsed = mapToTableItems(response);
         console.log("✅ parsed data:", parsed);
         setData(parsed);
       } catch (error) {
@@ -190,9 +194,10 @@ const openModal = async (userId: string | null, readOnly: boolean) => {
           method: 'DELETE',
         });
       }
-      // 데이터 새로고침
       const response = await fetchFromApi("/vulnerable/list");
-      setData(response);
+      const parsed = mapToTableItems(response);
+      setData(parsed);
+      setSelectedItems(new Set());
     } catch (error) {
       console.error("Failed to delete:", error);
       alert("삭제에 실패했습니다.");
@@ -263,9 +268,10 @@ const openModal = async (userId: string | null, readOnly: boolean) => {
 
       setIsModalOpen(false);
 
-      // 데이터 새로고침
       const response = await fetchFromApi("/vulnerable/list");
-      setData(response);
+      const parsed = mapToTableItems(response);
+      setData(parsed);
+      setSelectedItems(new Set());
     } catch (error) {
       console.error("Failed to submit form:", error);
       alert("저장에 실패했습니다.");
@@ -529,7 +535,88 @@ const openModal = async (userId: string | null, readOnly: boolean) => {
                       </div>
                     </div>
                   </div>
+{formData.vulnerabilities && (
+                  <div className="space-y-3">
+                    <h3 className="font-medium border-t pt-4">
+                      최근 상담 기반 취약 정보
+                    </h3>
 
+                    <div>
+                      <Label>요약</Label>
+                      <div className="mt-1 rounded-md border bg-muted/60 px-3 py-2 text-sm">
+                        {formData.vulnerabilities.summary
+                          ? formData.vulnerabilities.summary
+                          : "요약 정보가 없습니다."}
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>위기 정보</Label>
+                      {formData.vulnerabilities.risk_list &&
+                      formData.vulnerabilities.risk_list.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {formData.vulnerabilities.risk_list.map((r, idx) => (
+                            <div
+                              key={`risk-${idx}`}
+                              className="rounded-md border bg-background px-3 py-2 text-sm"
+                            >
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <Badge variant="destructive" className="flex items-center">
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  위기
+                                </Badge>
+                                {r.riskType &&
+                                  r.riskType.map((t, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">
+                                      {getRiskTypeLabel(t) || `유형 ${t}`}
+                                    </Badge>
+                                  ))}
+                              </div>
+                              <p className="text-sm">{r.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          위기 정보가 없습니다.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label>욕구 정보</Label>
+                      {formData.vulnerabilities.desire_list &&
+                      formData.vulnerabilities.desire_list.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {formData.vulnerabilities.desire_list.map((d, idx) => (
+                            <div
+                              key={`desire-${idx}`}
+                              className="rounded-md border bg-background px-3 py-2 text-sm"
+                            >
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <Badge className="flex items-center bg-sky-500 text-white hover:bg-sky-600">
+                                  <HeartHandshake className="h-3 w-3 mr-1" />
+                                  욕구
+                                </Badge>
+                                {d.desireType &&
+                                  d.desireType.map((t, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">
+                                      {getDesireTypeLabel(t) || `유형 ${t}`}
+                                    </Badge>
+                                  ))}
+                              </div>
+                              <p className="text-sm">{d.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          욕구 정보가 없습니다.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>

@@ -30,7 +30,12 @@ export interface QuestionSet {
 }
 
 export interface VulnerabilityDetail {
-  type: number[]
+  riskType?: number[]
+  desireType?: number[]
+
+  risk_index_list?: number[]
+  desire_index_list?: number[]
+
   content: string
 }
 

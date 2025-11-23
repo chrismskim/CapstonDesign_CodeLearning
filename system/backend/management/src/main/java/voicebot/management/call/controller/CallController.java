@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import voicebot.management.call.dto.ConsultationStatusDto;
+import voicebot.management.call.dto.LlmResultDto;
 import voicebot.management.call.dto.QueueBatchRequest;
 import voicebot.management.call.dto.VulnerableResponse;
 import voicebot.management.call.service.CallService;
@@ -50,5 +51,12 @@ public class CallController {
     @GetMapping("/sse/{adminId}")
     public SseEmitter subscribe(@PathVariable String adminId) {
         return monitoringService.subscribe(adminId);
+    }
+
+    @PostMapping("/send_llm_result")
+    public ResponseEntity<Void> receiveLlmResult(@RequestBody LlmResultDto resultDto) {
+        log.info("Received LLM result from orchestrator: {}", resultDto);
+        callService.handleLlmResult(resultDto);
+        return ResponseEntity.ok().build();
     }
 } 

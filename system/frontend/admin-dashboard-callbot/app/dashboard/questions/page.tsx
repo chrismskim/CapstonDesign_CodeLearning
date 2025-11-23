@@ -49,16 +49,49 @@ const initialQuestionSetData: QuestionSet = {
 
 const ITEMS_PER_PAGE = 10;
 
-// Mock data, to be replaced by API calls
 const mockQuestionSetTableData: QuestionSetTableItem[] = [];
 const mockQuestionSets: QuestionSet[] = [];
 
 function getKSTISOString(): string {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString(); // 예: "2025-06-17T15:44:00.000Z"
+  return kst.toISOString();
+}
+const mapBackendToFormQuestionSet = (backend: any): QuestionSet => {
+  return {
+    id: backend.id ?? "",
+    title: backend.title ?? "",
+    version: backend.version ?? 1,
+    flow: (backend.flow ?? []).map((q: any) => ({
+      text: q.text ?? "",
+      expected_response: (q.expectedResponse ?? []).map((er: any) => ({
+        text: er.text ?? "",
+        response_type_list: (er.responseTypeList ?? []).map((rt: any) => ({
+          response_type: rt.responseType,
+          response_index: rt.responseIndex,
+        })),
+      })),
+    })),
+  }
 }
 
+const mapFormToBackendQuestionSet = (form: QuestionSet) => {
+  return {
+    id: form.id,
+    title: form.title,
+    version: form.version,
+    flow: (form.flow ?? []).map((q) => ({
+      text: q.text,
+      expectedResponse: (q.expected_response ?? []).map((er) => ({
+        text: er.text,
+        responseTypeList: (er.response_type_list ?? []).map((rt) => ({
+          responseType: rt.response_type,
+          responseIndex: rt.response_index,
+        })),
+      })),
+    })),
+  }
+}
 export default function QuestionsPage() {
   const [searchTerm, setSearchTerm] = React.useState("")
   const [data, setData] = React.useState<QuestionSetTableItem[]>(mockQuestionSetTableData)
@@ -123,17 +156,20 @@ export default function QuestionsPage() {
     setIsFormOpen(true)
   }
 
-  const openFormForEdit = async (questionSetId: string) => {
-    try {
-      const result = await fetchFromApi(`/question/${questionSetId}`); // 실제 API 요청
-      setCurrentQuestionSet(result);
-      setFormData(result);
-      setIsFormOpen(true);
-    } catch (err) {
-      console.error("질문 세트 조회 실패:", err);
-      alert("질문 세트를 불러오지 못했습니다.");
-    }
-  };
+const openFormForEdit = async (questionSetId: string) => {
+  try {
+    const result = await fetchFromApi(`/question/${questionSetId}`)
+
+    const mapped = mapBackendToFormQuestionSet(result)
+
+    setCurrentQuestionSet(result)
+    setFormData(mapped)
+    setIsFormOpen(true)
+  } catch (err) {
+    console.error("질문 세트 조회 실패:", err)
+    alert("질문 세트를 불러오지 못했습니다.")
+  }
+}
 
   const handleDelete = async (questionSetIds: string[]) => {
     try {
@@ -226,20 +262,28 @@ export default function QuestionsPage() {
 const handleFormSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   try {
+    const basePayload = mapFormToBackendQuestionSet(formData);
+
     const dataToSend = currentQuestionSet
-      ? { ...formData }
-      : { ...formData, time: getKSTISOString() };
+      ? {
+          ...currentQuestionSet,
+          ...basePayload,
+        }
+      : {
+          ...basePayload,
+          time: getKSTISOString(),
+        };
 
     if (currentQuestionSet) {
       await fetchFromApi(`/question/${formData.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToSend),
       });
     } else {
       await fetchFromApi("/question/add", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToSend),
       });
     }
@@ -252,6 +296,7 @@ const handleFormSubmit = async (e: React.FormEvent) => {
     alert("저장에 실패했습니다.");
   }
 };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
   }

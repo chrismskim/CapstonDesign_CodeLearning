@@ -31,7 +31,6 @@ import { fetchFromApi } from "@/lib/api"
 
 const ITEMS_PER_PAGE = 10
 
-// This maps the backend result string to a variant for the Badge component
 const getResultBadgeVariant = (result: string) => {
   switch (result) {
     case "심층 상담 필요":
@@ -49,7 +48,7 @@ export default function HistoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [data, setData] = useState<CallHistoryTableItem[]>([])
   const [filters, setFilters] = useState<{ result: string[]; s_index: string }>({
-    result: [], // Backend doesn't support this yet, so it's UI only for now
+    result: [],
     s_index: "all",
   })
   const [selectedCallLog, setSelectedCallLog] = useState<CallLog | null>(null)
@@ -72,8 +71,6 @@ export default function HistoryPage() {
       if (filters.s_index !== "all") {
         params.append("sIndex", filters.s_index)
       }
-      // Note: Backend does not currently support filtering by 'result'.
-      // This will be a frontend-only filter for now until backend is updated.
 
       const response = await fetchFromApi(`/call/history?${params.toString()}`)
       
@@ -83,7 +80,7 @@ export default function HistoryPage() {
       }
 
       setData(filteredContent)
-      setTotalPages(Math.ceil(filteredContent.length / ITEMS_PER_PAGE)) // Adjust total pages based on client-side filter
+      setTotalPages(Math.ceil(filteredContent.length / ITEMS_PER_PAGE))
       if (currentPage > totalPages) setCurrentPage(1)
 
     } catch (err) {
@@ -105,28 +102,63 @@ export default function HistoryPage() {
         : currentFilterValues.filter((v) => v !== value)
       return { ...prev, [type]: newFilterValues }
     })
-    // Reset to page 1 when filters change
     setCurrentPage(1)
   }
 
   const handleSRoundFilterChange = (value: string) => {
     setFilters((prev) => ({ ...prev, s_index: value }))
-    // Reset to page 1 when filters change
     setCurrentPage(1)
   }
 
-  const openDetailModal = async (callId: string) => {
-    try {
-      const log = await fetchFromApi(`/call/history/${callId}`)
-      setSelectedCallLog(log)
-    } catch (error) {
-      alert("상세 정보를 불러오는 데 실패했습니다.")
+const openDetailModal = async (callId: string) => {
+  try {
+    const res = await fetchFromApi(`/call/history/${callId}`)
+
+    const rv =
+      res.result_vulnerabilities ??
+      res.resultVulnerabilities ??
+      {}
+
+    const parsed: CallLog = {
+      id: res.id ?? res._id ?? "",
+
+      v_id: res.v_id ?? res.vulnerableId ?? res.vId ?? "",
+
+      s_index: res.s_index ?? res.sIndex ?? 0,
+
+      account_id: res.account_id ?? res.accountId ?? "",
+
+      q_id: res.q_id ?? res.questionSetId ?? res.qId ?? "",
+
+      time: res.time,
+      runtime: res.runtime ?? 0,
+
+      summary: res.summary ?? "",
+
+      overall_script: res.overall_script ?? res.overallScript ?? "",
+
+      result: res.result ?? 0,
+      fail_code: res.fail_code ?? res.failCode ?? 0,
+      need_human: res.need_human ?? res.needHuman ?? 0,
+
+      result_vulnerabilities: {
+        risk_list: rv.risk_list ?? rv.riskList ?? [],
+        desire_list: rv.desire_list ?? rv.desireList ?? [],
+        risk_index_count: rv.risk_index_count ?? rv.riskIndexCount ?? {},
+        desire_index_count: rv.desire_index_count ?? rv.desireIndexCount ?? {},
+      },
     }
+
+    setSelectedCallLog(parsed)
+  } catch (error) {
+    console.error("상세 조회 실패:", error)
+    alert("상세 정보를 불러오는 데 실패했습니다.")
   }
-  
+}
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setCurrentPage(1); // Reset page to 1 on new search
+    setCurrentPage(1);
     fetchHistory();
   };
 
