@@ -1,5 +1,6 @@
 package voicebot.management.call.service;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,8 @@ import voicebot.management.vulnerable.entity.Vulnerable;
 import voicebot.management.vulnerable.repository.VulnerableRepository;
 import voicebot.management.vulnerable.session.entity.VulnerableSession;
 import voicebot.management.vulnerable.session.repository.VulnerableSessionRepository;
+import voicebot.management.call.dto.LlmResultDto;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -217,9 +220,6 @@ public class CallServiceImpl implements CallService {
                 .doOnSuccess(response -> {
                     log.info("FastAPI response: {}", response);
 
-                    // FastAPI에서는 아직 상담 결과를 주지 않으므로,
-                    // Spring 내에서 Consultation 데이터를 직접 만들 필요 없음.
-
                     item.setState("COMPLETED");
                     item.setEndTime(LocalDateTime.now());
 
@@ -249,28 +249,196 @@ public class CallServiceImpl implements CallService {
                 .subscribe();
     }
 
+    @Override
+    public void handleLlmResult(LlmResultDto dto) {
+        log.info("Handling LLM result for vulnerableId={}, sessionIndex={}, questionSetId={}",
+                dto.getVulnerableId(), dto.getSessionIndex(), dto.getQuestionSetId());
+
+        // 취약계층 먼저 조회 (나중에 업데이트에도 사용)
+        Vulnerable vulnerable = null;
+        if (dto.getVulnerableId() != null) {
+            vulnerable = vulnerableRepository.findById(dto.getVulnerableId()).orElse(null);
+        }
+
+        if (vulnerable == null) {
+            log.warn("Vulnerable not found for id={}", dto.getVulnerableId());
+        }
+
+        try {
+            Consultation consultation = new Consultation();
+
+            consultation.setVulnerableId(dto.getVulnerableId());
+            consultation.setQuestionSetId(dto.getQuestionSetId());
+
+            Integer sessionIndex = dto.getSessionIndex();
+            consultation.setSIndex(sessionIndex != null ? sessionIndex : 0);
+
+            if (dto.getTime() != null) {
+                try {
+                    consultation.setTime(LocalDateTime.parse(dto.getTime()));
+                } catch (Exception e) {
+                    log.warn("Invalid time format from dto: {} , using now()", dto.getTime());
+                    consultation.setTime(LocalDateTime.now());
+                }
+            } else {
+                consultation.setTime(LocalDateTime.now());
+            }
+
+            Long runtime = dto.getRuntime();
+            consultation.setRuntime(runtime != null ? runtime : 0L);
+
+            consultation.setOverallScript(dto.getOverallScript());
+            consultation.setSummary(dto.getSummary());
+
+            Integer result = dto.getResult();
+            consultation.setResult(result != null ? result : 0);
+
+            Integer failCode = dto.getFailCode();
+            consultation.setFailCode(failCode != null ? failCode : 0);
+
+            Integer needHuman = dto.getNeedHuman();
+            consultation.setNeedHuman(needHuman != null ? needHuman : 0);
+
+            consultation.setResultVulnerabilities(dto.getResultVulnerabilities());
+            consultation.setDeleteVulnerabilities(dto.getDeleteVulnerabilities());
+            consultation.setNewVulnerabilities(dto.getNewVulnerabilities());
+
+            consultation.setAccountId(dto.getAccountId());
+
+            // 1) 상담 내역 저장
+            consultationRepository.save(consultation);
+            log.info("Saved consultation result. consultationId={}", consultation.getId());
+
+            if (vulnerable != null && consultation.getResultVulnerabilities() != null) {
+                Consultation.VulnerabilityInfo rv = consultation.getResultVulnerabilities();
+
+                Vulnerable.Vulnerability vulnInfo = vulnerable.getVulnerabilities();
+                if (vulnInfo == null) {
+                    vulnInfo = new Vulnerable.Vulnerability();
+                }
+
+                vulnInfo.setSummary(consultation.getSummary());
+
+                List<Vulnerable.Risk> riskList =
+                        Optional.ofNullable(rv.getRiskList()).orElse(Collections.emptyList())
+                                .stream()
+                                .map(r -> Vulnerable.Risk.builder()
+                                        .riskType(r.getRiskIndexList())
+                                        .content(r.getContent())
+                                        .build()
+                                )
+                                .toList();
+
+                List<Vulnerable.Desire> desireList =
+                        Optional.ofNullable(rv.getDesireList()).orElse(Collections.emptyList())
+                                .stream()
+                                .map(d -> Vulnerable.Desire.builder()
+                                        .desireType(d.getDesireIndexList())
+                                        .content(d.getContent())
+                                        .build()
+                                )
+                                .toList();
+
+                vulnInfo.setRiskList(riskList);
+                vulnInfo.setDesireList(desireList);
+
+                vulnerable.setVulnerabilities(vulnInfo);
+                vulnerableRepository.save(vulnerable);
+
+                log.info("Updated Vulnerable {} vulnerabilities from consultation {}",
+                        vulnerable.getUserId(), consultation.getId());
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to save consultation result from LLM dto: {}", dto, e);
+        }
+    }
+
     private Map<String, Object> createOrchestratorRequest(Vulnerable vulnerable,
                                                           QuestionSet questionSet,
                                                           int sessionIndex) {
         Map<String, Object> address = Map.of(
                 "state", vulnerable.getAddress().getState(),
-                "city", vulnerable.getAddress().getCity(),
+                "city",  vulnerable.getAddress().getCity(),
                 "address1", vulnerable.getAddress().getAddress1(),
                 "address2", vulnerable.getAddress().getAddress2()
         );
 
+        List<Map<String, Object>> riskListMap = Collections.emptyList();
+        List<Map<String, Object>> desireListMap = Collections.emptyList();
+
+        if (vulnerable.getVulnerabilities() != null) {
+            Vulnerable.Vulnerability vulnInfo = vulnerable.getVulnerabilities();
+
+            if (vulnInfo.getRiskList() != null) {
+                riskListMap = vulnInfo.getRiskList().stream()
+                        .map(r -> {
+                            Map<String, Object> m = new HashMap<>();
+                            // FastAPI: risk_index_list
+                            m.put("risk_index_list", r.getRiskType());  // List<Integer>
+                            m.put("content", r.getContent());
+                            return m;
+                        })
+                        .toList();
+            }
+
+            if (vulnInfo.getDesireList() != null) {
+                desireListMap = vulnInfo.getDesireList().stream()
+                        .map(d -> {
+                            Map<String, Object> m = new HashMap<>();
+                            // FastAPI: desire_type
+                            m.put("desire_type", d.getDesireType());  // List<Integer>
+                            m.put("content", d.getContent());
+                            return m;
+                        })
+                        .toList();
+            }
+        }
+
         Map<String, Object> vulnerabilities = Map.of(
-                "risk_list", Collections.emptyList(),
-                "desire_list", Collections.emptyList()
+                "risk_list", riskListMap,
+                "desire_list", desireListMap
         );
+
+        List<Map<String, Object>> questionListParsed =
+                questionSet.getFlow().stream()
+                        .map(q -> {
+                            Map<String, Object> qMap = new HashMap<>();
+                            qMap.put("text", q.getText());
+
+                            List<Map<String, Object>> expectedAnswers =
+                                    q.getExpectedResponse().stream()
+                                            .map(exp -> {
+                                                Map<String, Object> expMap = new HashMap<>();
+                                                expMap.put("text", exp.getText());
+
+                                                List<Map<String, Object>> responseTypes =
+                                                        exp.getResponseTypeList().stream()
+                                                                .map(rt -> {
+                                                                    Map<String, Object> rtMap = new HashMap<>();
+                                                                    rtMap.put("response_type", rt.getResponseType());
+                                                                    rtMap.put("response_index", rt.getResponseIndex());
+                                                                    return rtMap;
+                                                                })
+                                                                .toList();
+
+                                                expMap.put("response_type_list", responseTypes);
+                                                return expMap;
+                                            })
+                                            .toList();
+
+                            qMap.put("expected_answer", expectedAnswers);
+                            return qMap;
+                        })
+                        .toList();
 
         return Map.of(
                 "name", vulnerable.getName(),
                 "phone", vulnerable.getPhoneNumber(),
                 "gender", vulnerable.getGender(),
-                "birth_date", vulnerable.getBirthDate().toString(),   // "YYYY-MM-DD" 형식이면 더 좋음
+                "birth_date", vulnerable.getBirthDate().toString(),
                 "address", address,
-                "question_list", questionSet.getFlow(),               // 이건 원래대로
+                "question_list", questionListParsed,
                 "vulnerabilities", vulnerabilities
         );
     }

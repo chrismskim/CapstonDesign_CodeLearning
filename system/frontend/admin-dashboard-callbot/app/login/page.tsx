@@ -1,43 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn } from "lucide-react";
 
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  const form = e.target as HTMLFormElement;
-  const userId = (form.querySelector("#userId") as HTMLInputElement).value;
-  const password = (form.querySelector("#password") as HTMLInputElement).value;
-
-  const res = await fetch(
-    (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080") + "/api/auth/login",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, password }),
-    }
-  );
-
-  if (!res.ok) {
-    const msg = (await res.json().catch(() => null))?.message || "로그인 실패";
-    alert(msg);
-    return;
-  }
-
-  const data = await res.json();
-  localStorage.setItem("token", data.token);
-  location.href = "/dashboard";
-};
-
 async function loginApi(userId: string, password: string) {
-  const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080").replace(/\/+$/,'');
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080").replace(/\/+$/, "");
   const url = `${base}/api/auth/login`;
+
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -52,7 +34,8 @@ async function loginApi(userId: string, password: string) {
     const msg = data?.message || data?.error || `${res.status} ${res.statusText}`;
     throw new Error(msg);
   }
-  return data as { accessToken: string; refreshToken?: string; isRoot?: boolean; };
+
+  return data as { accessToken: string; refreshToken?: string; isRoot?: boolean };
 }
 
 export default function LoginPage() {
@@ -61,6 +44,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
