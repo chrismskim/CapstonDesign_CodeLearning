@@ -28,7 +28,9 @@ AI 보이스봇을 활용한 취약계층 발굴 서비스의 **관리 시스템
   - Next.js 14
  
 ## 2. 실행을 위한 요구사항
-
+- 자동 생성 계정
+  - ID: admin
+  - Password: 12345678
 - Docker로 실행
   - MySQL
   - MongoDB
