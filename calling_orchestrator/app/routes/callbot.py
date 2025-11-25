@@ -119,9 +119,29 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
                 # (예: "아니요 없습니다.") -> 루프 종료
                 break
             
-            # [MOD 2] 신규 문제가 있음 (예: "요즘 허리가 않좋습니다.")
+            # [MOD 2] 신규 문제가 있음 (예: "네 있어요" 또는 "요즘 허리가 않좋습니다.")
             
-            # 1. 상세 질문 (예: "얼만큼 안 좋으신가요?")
+            # === 추가된 로직 시작: 무엇이 불편한지, 왜 불편한지 상세 질문 ===
+            
+            # 1. 무엇이 불편한지 질문
+            what_question = "어디가 어떻게 불편하신지 구체적으로 말씀해 주시겠습니까?"
+            await websocket.send_text(what_question)
+            state["script"].append(f"Q: {what_question}")
+            
+            what_answer = await websocket.receive_text()
+            save_answer(state, what_question, what_answer)
+
+            # 2. 왜 불편한지(원인) 질문
+            why_question = "그러한 문제가 발생한 원인이나 이유를 알고 계신가요?"
+            await websocket.send_text(why_question)
+            state["script"].append(f"Q: {why_question}")
+            
+            why_answer = await websocket.receive_text()
+            save_answer(state, why_question, why_answer)
+            
+            # === 추가된 로직 끝 ===
+
+            # 3. 상세 질문 (예: "얼만큼 안 좋으신가요?")
             detail_question = "얼만큼 안 좋으신가요? 통증 정도를 0에서 10으로 말씀해주시고, 기간도 함께 말씀해주세요."
             await websocket.send_text(detail_question)
             state["script"].append(f"Q: {detail_question}")
@@ -130,18 +150,19 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             save_answer(state, detail_question, detail_answer)
             # (예: "통증 정도는 5이고, 5일 정도 되었습니다.")
 
-            # 2. LLM을 이용해 문제 카테고리화 (예: "허리 통증")
+            # 4. LLM을 이용해 문제 카테고리화 (예: "허리 통증")
             try:
-                prompt = f"다음 사용자 불편 사항을 2-3 단어의 명사형(예: '허리 통증', '경제적 어려움')으로 요약해줘: '{extra_answer} {detail_answer}'"
+                # 수집된 모든 답변을 프롬프트에 포함
+                prompt = f"다음 사용자 불편 사항을 2-3 단어의 명사형(예: '허리 통증', '경제적 어려움')으로 요약해줘: '{extra_answer} {what_answer} {why_answer} {detail_answer}'"
                 # llm_service.py에 추가한 generate_response 함수 사용
                 problem_category = llm_service.generate_response(prompt)
                 if not problem_category: # LLM 실패 시 fallback
-                    problem_category = extra_answer[:10] + "..."
+                    problem_category = what_answer[:10] + "..."
             except Exception as e:
                 print(f"LLM 요약 실패: {e}")
-                problem_category = extra_answer[:10] + "..." # Fallback
+                problem_category = what_answer[:10] + "..." # Fallback
             
-            # 3. 카테고리화된 문제로 후속 질문 (예: "'허리 통증' 관련하여...")
+            # 5. 카테고리화된 문제로 후속 질문 (예: "'허리 통증' 관련하여...")
             offer_help_question = f"혹시, '{problem_category}' 관련하여 상담사 연결이 필요하신가요?"
             await websocket.send_text(offer_help_question)
             state["script"].append(f"Q: {offer_help_question}")
@@ -155,8 +176,10 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
 
             # (예: "아니요 괜찮습니다.")
 
-            # 4. 분석된 신규 문제를 최종 결과에 포함하기 위해 state에 저장
-            new_problem_content = f"{problem_category}: {extra_answer} ({detail_answer})"
+            # 6. 분석된 신규 문제를 최종 결과에 포함하기 위해 state에 저장
+            # 내용에 what(증상), why(원인), detail(정도)를 모두 포함
+            new_problem_content = f"{problem_category}: {what_answer} (원인: {why_answer}, 정도: {detail_answer})"
+            
             # (분류 로직은 classify_service를 활용하거나 단순화)
             classification_result = classify_service.classify_answer(new_problem_content)
             problem_type = classification_result.get("type", -1)

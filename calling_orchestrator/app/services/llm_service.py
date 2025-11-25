@@ -1,12 +1,11 @@
 import os
-import json # JSON 파싱을 위해 추가
+import json
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-# (기타 필요한 import ... )
 
-# ChatOpenAI 객체 초기화 (아마도 이 파일 어딘가에 있을 것입니다)
+# ChatOpenAI 객체 초기화
 chat = ChatOpenAI(
-    model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"), # .env에 모델 이름이 없다면 gpt-3.5-turbo 사용
+    model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),  # .env에 모델 이름이 없다면 gpt-3.5-turbo 사용
     temperature=0.7,
     # OPENAI_API_KEY는 환경 변수에서 자동으로 읽어옵니다.
 )
@@ -22,7 +21,7 @@ def generate_response(prompt: str) -> str:
         return result.strip().strip("'\"")
     except Exception as e:
         print(f"LLM generate_response 오류: {e}")
-        return "" # 오류 시 빈 문자열 반환
+        return ""  # 오류 시 빈 문자열 반환
 
 def update_vulnerable_list(original_list, user_text):
     """
@@ -31,6 +30,7 @@ def update_vulnerable_list(original_list, user_text):
     """
 
     # 프롬프트 정의 (JSON 반환 형식 명시)
+    # [수정] 예시 JSON의 중괄호 { }를 {{ }}로 두 번 감싸서 LangChain 변수로 인식되지 않도록 수정했습니다.
     prompt_template = """
     너는 상담 데이터를 처리하는 AI다.
     기존 목록: {original_list}
@@ -42,19 +42,19 @@ def update_vulnerable_list(original_list, user_text):
     반드시 결과물로 '업데이트된 목록'만 JSON 리스트 형식으로 반환해.
     
     예시 1:
-    기존 목록: [{'risk_index_list': [1], 'content': '주거 문제'}]
+    기존 목록: [{{'risk_index_list': [1], 'content': '주거 문제'}}]
     사용자 발화: "네, 아직 그대로입니다."
-    결과: [{'risk_index_list': [1], 'content': '주거 문제'}]
+    결과: [{{'risk_index_list': [1], 'content': '주거 문제'}}]
     
     예시 2:
-    기존 목록: [{'risk_index_list': [2], 'content': '건강 악화 문제'}]
+    기존 목록: [{{'risk_index_list': [2], 'content': '건강 악화 문제'}}]
     사용자 발화: "해결 되었습니다."
     결과: []
     
     예시 3:
-    기존 목록: [{'content': '주거 문제'}, {'content': '건강 문제'}]
+    기존 목록: [{{'content': '주거 문제'}}, {{'content': '건강 문제'}}]
     사용자 발화: "주거 문제는 아직 그대로인데, 건강은 괜찮아졌어요."
-    결과: [{'content': '주거 문제'}]
+    결과: [{{'content': '주거 문제'}}]
     
     예시 4:
     기존 목록: []
@@ -74,11 +74,9 @@ def update_vulnerable_list(original_list, user_text):
 
     try:
         response = chat.invoke(prompt)
-        result = response.content.strip() # LLM 응답(JSON 문자열)
+        result = response.content.strip()  # LLM 응답(JSON 문자열)
 
-        # === 핵심 수정: JSON 파싱 로직 구현 ===
-        # LLM이 반환한 JSON 문자열을 Python 리스트 객체로 파싱
-        
+        # === JSON 파싱 로직 ===
         # LLM이 마크다운 코드 블록(```json ... ```)을 반환할 경우 대비
         if result.startswith("```json"):
             result = result[7:-3].strip()
@@ -95,14 +93,14 @@ def update_vulnerable_list(original_list, user_text):
         # 파싱된 객체가 리스트가 맞는지 확인
         if not isinstance(updated_list, list):
             print(f"LLM 파싱 오류: 결과가 리스트가 아님. LLM 응답: {result}")
-            return original_list # 실패 시 원본 리스트 반환
+            return original_list  # 실패 시 원본 리스트 반환
             
         print(f"LLM 목록 업데이트 성공. {len(original_list)}개 -> {len(updated_list)}개")
-        return updated_list # 성공 시 파싱된 리스트 반환
+        return updated_list  # 성공 시 파싱된 리스트 반환
     
     except json.JSONDecodeError:
         print(f"LLM 파싱 오류: JSON 디코딩 실패. LLM 응답: {result}")
-        return original_list # JSON 파싱 실패 시 원본 리스트 반환
+        return original_list  # JSON 파싱 실패 시 원본 리스트 반환
     except Exception as e:
         print(f"LLM 응답 파싱 중 알 수 없는 오류 발생: {e}")
-        return original_list # 기타 오류 시 원본 리스트 반환
+        return original_list  # 기타 오류 시 원본 리스트 반환
