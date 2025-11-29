@@ -21,6 +21,7 @@ async def receive_user_data(user: UserData):
     try:
         session_data = {
             "v_id": user.vulnerable_id,  # [추가] Spring Boot에서 받은 ID를 세션에 저장
+            "s_index": user.s_index, # [추가] 세션에 저장
             "current_idx": 0,
             "risk_list": [r.model_dump() for r in user.vulnerabilities.risk_list],
             "desire_list": [d.model_dump() for d in user.vulnerabilities.desire_list],
