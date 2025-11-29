@@ -1,6 +1,4 @@
-#사용자 데이터 및 요청/응답에 사용할 Pydantic 모델 정의
-
-from typing import Any, List
+from typing import Any, List, Optional  # [수정] Optional 추가
 from pydantic import BaseModel, Extra
 
 class ResponseType(BaseModel):
@@ -26,7 +24,7 @@ class RiskItem(BaseModel):
     content: str
 
 class DesireItem(BaseModel):
-    desire_type: List[int]  # 필드명 desire_index_list → desire_type으로 변경
+    desire_type: List[int]
     content: str
 
 class Vulnerabilities(BaseModel):
@@ -34,6 +32,7 @@ class Vulnerabilities(BaseModel):
     desire_list: List[DesireItem]
 
 class UserData(BaseModel):
+    vulnerable_id: Optional[str] = None  # [추가] Spring Boot에서 보낸 ID 받기
     name: str
     phone: str
     gender: str
@@ -41,4 +40,7 @@ class UserData(BaseModel):
     address: Address
     question_list: List[Question]
     vulnerabilities: Vulnerabilities
-    # system 데이터에 맞게 필드 추가/수정 완료
+
+    # [추가] 정의되지 않은 필드가 와도 에러 내지 않도록 설정
+    class Config:
+        extra = "ignore"

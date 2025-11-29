@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles # 추가
-# [수정] 'callbot' 모듈에서 'router' 객체를 직접 가져와 'callbot_router'로 이름을 변경합니다.
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware # [추가] CORS 미들웨어
 from app.routes.callbot import router as callbot_router
 from app.result_forwarding import router as result_forwarding_router
 import uvicorn
@@ -8,16 +8,22 @@ import os
 
 app = FastAPI()
 
-# [수정] API 라우터를 먼저 등록해야 static 파일 마운트보다 우선순위를 가집니다.
-# 이제 'callbot_router'는 APIRouter 객체이므로 정상적으로 등록됩니다.
+# [추가] CORS 설정: 모든 도메인에서의 요청 허용 (개발 환경용)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(callbot_router)
 app.include_router(result_forwarding_router)
 
-# static 폴더를 / 경로에 마운트하여 index.html을 기본 페이지로 제공 (추가)
-app.mount("/", StaticFiles(directory="app/static", html = True), name="static")
-
+# static 폴더를 / 경로에 마운트하여 index.html을 기본 페이지로 제공
+app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 
 if __name__ == "__main__":
-    # 포트 번호를 8000으로 변경 (Redis 포트와 겹칠 수 있음)
+    # 포트 번호를 8000으로 설정
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
