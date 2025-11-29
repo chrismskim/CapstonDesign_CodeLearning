@@ -33,6 +33,7 @@ class Vulnerabilities(BaseModel):
 
 class UserData(BaseModel):
     vulnerable_id: Optional[str] = None  # [추가] Spring Boot에서 보낸 ID 받기
+    s_index: Optional[int] = 0  # [추가] 회차 정보 수신
     name: str
     phone: str
     gender: str

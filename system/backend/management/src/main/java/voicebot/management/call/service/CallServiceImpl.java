@@ -433,7 +433,8 @@ public class CallServiceImpl implements CallService {
                         .toList();
 
         return Map.of(
-                "vulnerable_id", vulnerable.getUserId(), // [이 줄을 추가해주세요]
+                "vulnerable_id", vulnerable.getUserId(), //취약문제 index
+                "s_index", sessionIndex,  // [추가] 회차 정보 전달
                 "name", vulnerable.getName(),
                 "phone", vulnerable.getPhoneNumber(),
                 "gender", vulnerable.getGender(),
