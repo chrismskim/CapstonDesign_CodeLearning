@@ -35,6 +35,7 @@ def build_output(state, result=2, fail_code=0, need_human=0):
     output = {
         # [추가] 취약계층 ID 포함 (세션에 저장된 경우)
         "v_id": state.get("v_id"), 
+        "s_index": state.get("s_index", 0), # [추가] 결과에 포함
         "overall_script": "\n".join(script),
         "summary": summary,
         "result": result,
