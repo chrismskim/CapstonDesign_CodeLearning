@@ -143,20 +143,39 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             
             # === 추가된 로직 끝 ===
 
-            # 3. 상세 질문 (예: "얼만큼 안 좋으신가요?")
-            detail_question = "얼만큼 안 좋으신가요? 통증 정도를 0에서 10으로 말씀해주시고, 기간도 함께 말씀해주세요."
-            await websocket.send_text(detail_question)
-            state["script"].append(f"Q: {detail_question}")
+            # [수정됨] 3. 상세 질문 3종 (긴급성 -> 일상생활 -> 보호자)
             
-            detail_answer = await websocket.receive_text()
-            save_answer(state, detail_question, detail_answer)
-            # (예: "통증 정도는 5이고, 5일 정도 되었습니다.")
+            # 3-1. 긴급성 확인
+            urgency_question = "지금 당장 응급조치가 필요한가요?"
+            await websocket.send_text(urgency_question)
+            state["script"].append(f"Q: {urgency_question}")
+            
+            urgency_answer = await websocket.receive_text()
+            save_answer(state, urgency_question, urgency_answer)
+
+            # 3-2. 일상생활 불편 확인
+            adl_question = "일상생활에 얼마나 불편을 주나요?"
+            await websocket.send_text(adl_question)
+            state["script"].append(f"Q: {adl_question}")
+            
+            adl_answer = await websocket.receive_text()
+            save_answer(state, adl_question, adl_answer)
+
+            # 3-3. 보호자 여부 확인
+            guardian_question = "곁에 도와줄 분이 계신가요?"
+            await websocket.send_text(guardian_question)
+            state["script"].append(f"Q: {guardian_question}")
+            
+            guardian_answer = await websocket.receive_text()
+            save_answer(state, guardian_question, guardian_answer)
 
             # 4. LLM을 이용해 문제 카테고리화 (예: "허리 통증")
             try:
-                # 수집된 모든 답변을 프롬프트에 포함
-                prompt = f"다음 사용자 불편 사항을 2-3 단어의 명사형(예: '허리 통증', '경제적 어려움')으로 요약해줘: '{extra_answer} {what_answer} {why_answer} {detail_answer}'"
-                # llm_service.py에 추가한 generate_response 함수 사용
+                # 수집된 모든 답변(상세 3종 포함)을 프롬프트에 포함
+                prompt = (f"다음 사용자 불편 사항을 2-3 단어의 명사형(예: '허리 통증', '경제적 어려움')으로 요약해줘: "
+                          f"'{extra_answer} {what_answer} {why_answer}. "
+                          f"긴급성: {urgency_answer}, 일상생활: {adl_answer}, 보호자: {guardian_answer}'")
+                
                 problem_category = llm_service.generate_response(prompt)
                 if not problem_category: # LLM 실패 시 fallback
                     problem_category = what_answer[:10] + "..."
@@ -176,36 +195,37 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
                 state["need_human"] = 1 # 1 = 사용자 요청
                 state["script"].append(f"(사용자가 '{problem_category}' 관련 상담사 연결 요청함)")
 
-            # (예: "아니요 괜찮습니다.")
-
             # 6. 분석된 신규 문제를 최종 결과에 포함하기 위해 state에 저장
-            new_problem_content = f"{problem_category}: {what_answer} (원인: {why_answer}, 정도: {detail_answer})"
+            # 내용에 긴급성, ADL, 보호자 답변을 모두 포함하여 저장
+            new_problem_content = (f"{problem_category}: {what_answer} "
+                                   f"(원인: {why_answer}, 긴급성: {urgency_answer}, "
+                                   f"생활불편: {adl_answer}, 보호자: {guardian_answer})")
             
             # [수정] 분류 서비스 호출 (점수 분석 포함)
             classification_result = classify_service.classify_answer(new_problem_content)
             problem_type = classification_result.get("type", -1)
             
-            # [수정] 단순 요약본 대신, 점수 정보가 포함된 상세 내용(content)을 가져옵니다.
-            # 만약 content가 없으면 기존 요약본을 사용합니다.
+            # [수정] 점수 정보가 포함된 상세 내용(content)을 저장
             final_content = classification_result.get("content", new_problem_content)
 
             if problem_type == 1: # 위기 (주의 단계)
-                 state["risk_list"].append({
-                     "risk_index_list": [classification_result.get("category_index", 99)], 
-                     "content": final_content  # <-- 수정됨: 점수 포함된 내용 저장
-                 })
+                state["risk_list"].append({
+                    "risk_index_list": [classification_result.get("category_index", 99)], 
+                    "content": final_content
+                })
             else: # 욕구 또는 기타 (양호 단계)
-                 state["desire_list"].append({
-                     "desire_type": [classification_result.get("category_index", 99)], 
-                     "content": final_content  # <-- 수정됨: 점수 포함된 내용 저장
-                 })
+                state["desire_list"].append({
+                    "desire_type": [classification_result.get("category_index", 99)], 
+                    "content": final_content
+                })
             
             if problem_type == 3: # 심층상담 (심각 단계)
                 state["need_human"] = 2 # 2 = 중대사항 발견 (즉시 알림 대상)
+                # 심각한 경우 명시적으로 위기 리스트에 추가 (카테고리 99: 긴급)
                 state["risk_list"].append({
-                     "risk_index_list": [99], # 99: 긴급/중대
-                     "content": final_content
-                 })
+                    "risk_index_list": [99], 
+                    "content": final_content
+                })
 
             await save_session(user_phone, state)
             
