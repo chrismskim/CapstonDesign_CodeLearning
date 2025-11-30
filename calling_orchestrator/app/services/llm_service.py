@@ -158,7 +158,14 @@ def analyze_user_situation(user_text: str) -> dict:
         elif result_text.startswith("```"):
             result_text = result_text[3:-3].strip()
             
-        return json.loads(result_text)
+        data = json.loads(result_text)
+
+        # 안전장치: LLM이 숫자("3")를 문자열로 주더라도 강제로 숫자(3)로 변환
+        return {
+            "urgency_score": int(data.get("urgency_score", 0)),
+            "adl_score": int(data.get("adl_score", 0)),
+            "guardian_score": int(data.get("guardian_score", 0)),
+            "reason": str(data.get("reason", ""))}
     except Exception as e:
         print(f"LLM 분석 실패: {e}")
         # 실패 시 안전한 기본값 반환
