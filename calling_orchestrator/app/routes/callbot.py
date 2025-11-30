@@ -179,20 +179,33 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             # (예: "아니요 괜찮습니다.")
 
             # 6. 분석된 신규 문제를 최종 결과에 포함하기 위해 state에 저장
-            # 내용에 what(증상), why(원인), detail(정도)를 모두 포함
             new_problem_content = f"{problem_category}: {what_answer} (원인: {why_answer}, 정도: {detail_answer})"
             
-            # (분류 로직은 classify_service를 활용하거나 단순화)
+            # [수정] 분류 서비스 호출 (점수 분석 포함)
             classification_result = classify_service.classify_answer(new_problem_content)
             problem_type = classification_result.get("type", -1)
-
-            if problem_type == 1: # 위기
-                 state["risk_list"].append({"risk_index_list": [classification_result.get("category_index", 99)], "content": new_problem_content})
-            else: # 욕구 또는 기타 (심층상담 포함)
-                 state["desire_list"].append({"desire_type": [classification_result.get("category_index", 99)], "content": new_problem_content})
             
-            if problem_type == 3: # 심층상담
-                state["need_human"] = 2 # 2 = 중대사항 발견
+            # [수정] 단순 요약본 대신, 점수 정보가 포함된 상세 내용(content)을 가져옵니다.
+            # 만약 content가 없으면 기존 요약본을 사용합니다.
+            final_content = classification_result.get("content", new_problem_content)
+
+            if problem_type == 1: # 위기 (주의 단계)
+                 state["risk_list"].append({
+                     "risk_index_list": [classification_result.get("category_index", 99)], 
+                     "content": final_content  # <-- 수정됨: 점수 포함된 내용 저장
+                 })
+            else: # 욕구 또는 기타 (양호 단계)
+                 state["desire_list"].append({
+                     "desire_type": [classification_result.get("category_index", 99)], 
+                     "content": final_content  # <-- 수정됨: 점수 포함된 내용 저장
+                 })
+            
+            if problem_type == 3: # 심층상담 (심각 단계)
+                state["need_human"] = 2 # 2 = 중대사항 발견 (즉시 알림 대상)
+                state["risk_list"].append({
+                     "risk_index_list": [99], # 99: 긴급/중대
+                     "content": final_content
+                 })
 
             await save_session(user_phone, state)
             

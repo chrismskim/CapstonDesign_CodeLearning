@@ -104,3 +104,67 @@ def update_vulnerable_list(original_list, user_text):
     except Exception as e:
         print(f"LLM 응답 파싱 중 알 수 없는 오류 발생: {e}")
         return original_list  # 기타 오류 시 원본 리스트 반환
+    
+    
+def analyze_user_situation(user_text: str) -> dict:
+    """
+    사용자의 발화를 분석하여 긴급성, 일상생활 저해, 보호자 여부를 점수화하여 반환합니다.
+    """
+    prompt_template = """
+    너는 독거노인 상담 전문 AI야. 아래 대화 내용을 분석해서 3가지 항목(긴급성, 일상생활, 보호자)에 대해 가장 적절한 등급을 판정해줘.
+    
+    [판정 기준]
+    1. 긴급성 (Urgency)
+       - 0점: 없음 (특이사항 없음)
+       - 1점: 추후 경과 살필 필요 있음 (만성 통증, 경미한 불편)
+       - 3점: 즉시 출동 요망 (호흡곤란, 의식소실, 극심한 고통, 자살 암시)
+
+    2. 일상생활 저해 (ADL Impact)
+       - 0점: 활동 가능
+       - 1점: 조금 불편 (자가 케어 가능)
+       - 2점: 보통 불편 (일부 도움 필요)
+       - 3점: 많이 불편 (대부분 도움 필요)
+       - 4점: 거동 불가 (와상 상태, 이동 불가)
+
+    3. 보호자 여부 (Guardian)
+       - 0점: 보호자 동반 거주
+       - 1점: 1시간 이내 거주 및 즉각적 도움 가능
+       - 2점: 조금 멀지만 도움 받을 수 있음 (전화/간헐적 방문)
+       - 3점: 아주 멀어서 즉각적 도움 불가
+       - 4점: 없음 (고립, 연락두절)
+       - 2점: (정보 없음/알 수 없음 - 기본값)
+
+    [대화 내용]
+    "{user_text}"
+
+    반드시 아래 JSON 형식으로만 답해줘:
+    {{
+      "urgency_score": 점수(숫자),
+      "adl_score": 점수(숫자),
+      "guardian_score": 점수(숫자),
+      "reason": "판단 근거 한 줄 요약"
+    }}
+    """
+    
+    try:
+        # chat 객체는 기존에 정의된 것을 사용
+        prompt = PromptTemplate.from_template(prompt_template).format(user_text=user_text)
+        response = chat.invoke(prompt)
+        result_text = response.content.strip()
+        
+        # JSON 파싱 전처리 (마크다운 코드블록 제거)
+        if result_text.startswith("```json"):
+            result_text = result_text[7:-3].strip()
+        elif result_text.startswith("```"):
+            result_text = result_text[3:-3].strip()
+            
+        return json.loads(result_text)
+    except Exception as e:
+        print(f"LLM 분석 실패: {e}")
+        # 실패 시 안전한 기본값 반환
+        return {
+            "urgency_score": 1, 
+            "adl_score": 1, 
+            "guardian_score": 2, 
+            "reason": "분석 실패"
+        }
