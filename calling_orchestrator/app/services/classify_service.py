@@ -3,31 +3,55 @@ import re
 
 def classify_answer(answer: str) -> dict:
     """
-    답변을 분석해 type 0(예외처리), 1(위기), 2(욕구), 3(심층상담) 분류
-    욕구 관련 답변은 LLM을 이용해 type/카테고리 판별
+    답변을 분석하여 3가지 지표의 개별 점수를 포함한 상세 내용과
+    점수 조합에 따른 상담 유형(Type)을 반환합니다.
     """
-    exception_keywords = ["신상정보불일치", "상담거부", "의사소통불가", "부적절한답변", "연결끊어짐", "전화미수신"]
-    risk_keywords = ["요금체납", "주거위기", "고용위기", "급여", "긴급상황", "건강위기", "에너지위기"]
-    deep_keywords = ["심층상담", "중대함"]
+    
+    # 1. 예외 키워드 처리 (기존 로직 유지)
+    exception_keywords = ["신상정보불일치", "상담거부", "욕설", "연결끊어짐", "전화미수신"]
     for idx, word in enumerate(exception_keywords, 1):
         if word in answer:
             return {"type": 0, "reason": word, "fail_code": idx}
-    for word in deep_keywords:
-        if word in answer:
-            return {"type": 3, "reason": word}
-    for word in risk_keywords:
-        if word in answer:
-            return {"type": 1, "category": word}
-    # 욕구 관련 답변은 LLM으로 판별
-    prompt = f"다음 답변이 욕구(Desire) 상황에 해당하면 type 2, 심층상담이면 type 3, 아니면 -1을 반환하고, 해당하는 욕구 카테고리(안전, 건강, 일상생활유지, 가족관계, 사회적 관계, 경제, 교육, 고용, 생활환경, 법률 및 권익보장, 기타) 또는 심층상담 사유를 함께 알려줘. 답변: {answer}"
-    llm_result = llm_service.generate_response(prompt)
-    m = re.search(r'type\s*:?\s*(\d+)', llm_result)
-    if m:
-        type_num = int(m.group(1))
-        if type_num == 2:
-            cat = re.search(r'category\s*:?\s*([\w가-힣]+)', llm_result)
-            return {"type": 2, "category": cat.group(1) if cat else "기타"}
-        elif type_num == 3:
-            reason = re.search(r'reason\s*:?\s*([\w가-힣 ]+)', llm_result)
-            return {"type": 3, "reason": reason.group(1) if reason else "심층상담"}
-    return {"type": -1}
+
+    # 2. [NEW] LLM 상세 분석 실행
+    analysis = llm_service.analyze_user_situation(answer)
+    
+    # 점수 추출 (없으면 기본값 0)
+    u_score = analysis.get("urgency_score", 0)   # 0 ~ 3
+    a_score = analysis.get("adl_score", 0)       # 0 ~ 4
+    g_score = analysis.get("guardian_score", 0)  # 0 ~ 4
+    
+    # 3. [NEW] 상세 내용 포맷팅 (담당자가 볼 최종 텍스트)
+    # 예: "허리 통증 호소 [긴급성(1), 일상생활(3), 보호자(0)]"
+    detail_content = (f"{analysis.get('reason', '')} "
+                      f"[긴급성({u_score}), "
+                      f"일상생활({a_score}), "
+                      f"보호자({g_score})]")
+
+    # 4. [NEW] 판단 로직: 과락(Cut-off) 기반 분류
+    
+    # Case 1: [심각 - Type 3] (즉시 개입 필요)
+    # 조건: 긴급성이 최고점(3)이거나, 거동불가(4)인데 보호자도 없음(4)
+    if u_score >= 3 or (a_score >= 4 and g_score >= 4):
+        return {
+            "type": 3, 
+            "reason": "응급 상황 또는 고위험 고립 가구", 
+            "content": detail_content
+        }
+
+    # Case 2: [주의 - Type 1] (위기 리스트 등록)
+    # 조건: 긴급성(1 이상) OR 생활불편(3 이상) OR 보호자 부재(3 이상)
+    elif u_score >= 1 or a_score >= 3 or g_score >= 3:
+        return {
+            "type": 1, 
+            "category_index": 1, # 1: 건강/안전 (예시)
+            "content": detail_content
+        }
+
+    # Case 3: [양호 - Type 2] (단순 욕구/일반)
+    else:
+        return {
+            "type": 2, 
+            "category_index": 0, # 0: 기타/일반
+            "content": detail_content
+        }
