@@ -1,7 +1,7 @@
 from app.services import llm_service
 
 def save_answer(state, question, user_text):
-    state["script"].append(f"Q: {question} A: {user_text}")
+    state["script"].append(f"Q: {question}, A: {user_text}")
     state["answers"].append(user_text)
 
 # LLM을 이용해 risk_list/desire_list 업데이트

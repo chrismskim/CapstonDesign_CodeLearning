@@ -23,6 +23,7 @@ async def receive_user_data(user: UserData):
             "v_id": user.vulnerable_id,  # [추가] Spring Boot에서 받은 ID를 세션에 저장
             "s_index": user.s_index, # [추가] 세션에 저장
             "current_idx": 0,
+            "q_id": user.q_id,
             "risk_list": [r.model_dump() for r in user.vulnerabilities.risk_list],
             "desire_list": [d.model_dump() for d in user.vulnerabilities.desire_list],
             "script": [],
@@ -33,7 +34,8 @@ async def receive_user_data(user: UserData):
             "user_phone": user.phone,
             "need_human": 0 # [추가] 상담사 연결 요청 플래그
         }
-        await save_session(user.phone, session_data)
+        session_key = user.phone.replace("-", "") 
+        await save_session(session_key, session_data)
         question_data = jsonable_encoder(user.question_list)
         await redis_service.save_question_list(question_data)
         return {"result": "상담 데이터 저장 완료, 웹소켓 연결 대기중", "user_phone": user.phone}
@@ -76,6 +78,7 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             state["script"].append(f"Q: {question}")
             
             user_text = await websocket.receive_text()
+            print(f"[WS RECV][{user_phone}][extra_answer] {repr(user_text)}")
             save_answer(state, question, user_text)
 
             # [MOD 1] 문제가 해결되었는지 간단히 확인
@@ -113,8 +116,10 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
         while True:
             extra_question = "추가로 불편한 점이 있으신가요? 있다면 말씀해주시고, 없다면 '없다'고 말씀해주세요."
             await websocket.send_text(extra_question)
-            
+            state["script"].append(f"Q: {extra_question}")
+
             extra_answer = await websocket.receive_text()
+            print(f"[WS RECV][{user_phone}][extra_answer] {repr(extra_answer)}")
             save_answer(state, extra_question, extra_answer)
 
             if any(keyword in extra_answer for keyword in ["없", "아니", "괜찮"]):
@@ -131,6 +136,7 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             state["script"].append(f"Q: {what_question}")
             
             what_answer = await websocket.receive_text()
+            print(f"[WS RECV][{user_phone}][what_answer] {repr(what_answer)}")
             save_answer(state, what_question, what_answer)
 
             # 2. 왜 불편한지(원인) 질문
@@ -139,6 +145,8 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             state["script"].append(f"Q: {why_question}")
             
             why_answer = await websocket.receive_text()
+            print(f"[WS RECV][{user_phone}][what_answer] {repr(why_answer)}")
+
             save_answer(state, why_question, why_answer)
             
             # === 추가된 로직 끝 ===
@@ -151,6 +159,7 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             state["script"].append(f"Q: {urgency_question}")
             
             urgency_answer = await websocket.receive_text()
+            print(f"[WS RECV][{user_phone}][what_answer] {repr(urgency_answer)}")
             save_answer(state, urgency_question, urgency_answer)
 
             # 3-2. 일상생활 불편 확인
@@ -159,6 +168,7 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             state["script"].append(f"Q: {adl_question}")
             
             adl_answer = await websocket.receive_text()
+            print(f"[WS RECV][{user_phone}][what_answer] {repr(adl_answer)}")
             save_answer(state, adl_question, adl_answer)
 
             # 3-3. 보호자 여부 확인
@@ -167,6 +177,7 @@ async def websocket_call_endpoint(websocket: WebSocket, user_phone: str):
             state["script"].append(f"Q: {guardian_question}")
             
             guardian_answer = await websocket.receive_text()
+            print(f"[WS RECV][{user_phone}][what_answer] {repr(guardian_answer)}")
             save_answer(state, guardian_question, guardian_answer)
 
             # 4. LLM을 이용해 문제 카테고리화 (예: "허리 통증")
