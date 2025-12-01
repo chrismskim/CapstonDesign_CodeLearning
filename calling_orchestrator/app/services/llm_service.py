@@ -29,8 +29,7 @@ def update_vulnerable_list(original_list, user_text):
     LLM을 호출하여 해결된 항목을 목록에서 제거합니다.
     """
 
-    # 프롬프트 정의 (JSON 반환 형식 명시)
-    # [수정] 예시 JSON의 중괄호 { }를 {{ }}로 두 번 감싸서 LangChain 변수로 인식되지 않도록 수정했습니다.
+    # [수정됨] 프롬프트 내 예시의 작은따옴표(')를 모두 큰따옴표(")로 변경했습니다.
     prompt_template = """
     너는 상담 데이터를 처리하는 AI다.
     기존 목록: {original_list}
@@ -42,19 +41,19 @@ def update_vulnerable_list(original_list, user_text):
     반드시 결과물로 '업데이트된 목록'만 JSON 리스트 형식으로 반환해.
     
     예시 1:
-    기존 목록: [{{'risk_index_list': [1], 'content': '주거 문제'}}]
+    기존 목록: [{{"risk_index_list": [1], "content": "주거 문제"}}]
     사용자 발화: "네, 아직 그대로입니다."
-    결과: [{{'risk_index_list': [1], 'content': '주거 문제'}}]
+    결과: [{{"risk_index_list": [1], "content": "주거 문제"}}]
     
     예시 2:
-    기존 목록: [{{'risk_index_list': [2], 'content': '건강 악화 문제'}}]
+    기존 목록: [{{"risk_index_list": [2], "content": "건강 악화 문제"}}]
     사용자 발화: "해결 되었습니다."
     결과: []
     
     예시 3:
-    기존 목록: [{{'content': '주거 문제'}}, {{'content': '건강 문제'}}]
+    기존 목록: [{{"content": "주거 문제"}}, {{"content": "건강 문제"}}]
     사용자 발화: "주거 문제는 아직 그대로인데, 건강은 괜찮아졌어요."
-    결과: [{{'content': '주거 문제'}}]
+    결과: [{{"content": "주거 문제"}}]
     
     예시 4:
     기존 목록: []
@@ -77,35 +76,32 @@ def update_vulnerable_list(original_list, user_text):
         result = response.content.strip()  # LLM 응답(JSON 문자열)
 
         # === JSON 파싱 로직 ===
-        # LLM이 마크다운 코드 블록(```json ... ```)을 반환할 경우 대비
         if result.startswith("```json"):
             result = result[7:-3].strip()
         elif result.startswith("```"):
              result = result[3:-3].strip()
         
-        # '[', '{'로 시작하지 않는 비정상 응답 처리
         if not result.startswith('[') and not result.startswith('{'):
              print(f"LLM 파싱 오류: JSON 형식이 아님. LLM 응답: {result}")
              return original_list
 
         updated_list = json.loads(result)
         
-        # 파싱된 객체가 리스트가 맞는지 확인
         if not isinstance(updated_list, list):
             print(f"LLM 파싱 오류: 결과가 리스트가 아님. LLM 응답: {result}")
-            return original_list  # 실패 시 원본 리스트 반환
+            return original_list
             
         print(f"LLM 목록 업데이트 성공. {len(original_list)}개 -> {len(updated_list)}개")
-        return updated_list  # 성공 시 파싱된 리스트 반환
+        return updated_list
     
     except json.JSONDecodeError:
         print(f"LLM 파싱 오류: JSON 디코딩 실패. LLM 응답: {result}")
-        return original_list  # JSON 파싱 실패 시 원본 리스트 반환
+        # 실패 시 안전하게 원본 리스트 반환
+        return original_list
     except Exception as e:
         print(f"LLM 응답 파싱 중 알 수 없는 오류 발생: {e}")
-        return original_list  # 기타 오류 시 원본 리스트 반환
-    
-    
+        return original_list
+
 def analyze_user_situation(user_text: str) -> dict:
     """
     사용자의 발화를 분석하여 긴급성, 일상생활 저해, 보호자 여부를 점수화하여 반환합니다.
@@ -147,12 +143,11 @@ def analyze_user_situation(user_text: str) -> dict:
     """
     
     try:
-        # chat 객체는 기존에 정의된 것을 사용
         prompt = PromptTemplate.from_template(prompt_template).format(user_text=user_text)
         response = chat.invoke(prompt)
         result_text = response.content.strip()
         
-        # JSON 파싱 전처리 (마크다운 코드블록 제거)
+        # JSON 파싱 전처리
         if result_text.startswith("```json"):
             result_text = result_text[7:-3].strip()
         elif result_text.startswith("```"):
@@ -160,15 +155,15 @@ def analyze_user_situation(user_text: str) -> dict:
             
         data = json.loads(result_text)
 
-        # 안전장치: LLM이 숫자("3")를 문자열로 주더라도 강제로 숫자(3)로 변환
+        # 안전장치: 숫자 변환
         return {
             "urgency_score": int(data.get("urgency_score", 0)),
             "adl_score": int(data.get("adl_score", 0)),
             "guardian_score": int(data.get("guardian_score", 0)),
-            "reason": str(data.get("reason", ""))}
+            "reason": str(data.get("reason", ""))
+        }
     except Exception as e:
         print(f"LLM 분석 실패: {e}")
-        # 실패 시 안전한 기본값 반환
         return {
             "urgency_score": 1, 
             "adl_score": 1, 
