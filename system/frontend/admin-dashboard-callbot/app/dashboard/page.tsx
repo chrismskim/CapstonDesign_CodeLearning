@@ -6,9 +6,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Users, PhoneCall, PieChartIcon } from "lucide-react"
 import Link from "next/link"
 import SimpleBarChart from "@/components/simple-bar-chart"
-import { fetchFromApi } from "@/lib/api"
+import { fetchFromApi } from "@/libs/api"
 import type { CallLog } from "@/types"
-import { getRiskTypeLabel, getDesireTypeLabel } from "@/lib/consultation-types"
+import { getRiskTypeLabel, getDesireTypeLabel } from "@/libs/consultation-types"
 
 interface DashboardAggregates {
   todayConsultationCount: number

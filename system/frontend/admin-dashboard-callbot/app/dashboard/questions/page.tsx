@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { RISK_TYPES, DESIRE_TYPES, RESPONSE_TYPE_CATEGORIES } from "@/lib/consultation-types"
+import { RISK_TYPES, DESIRE_TYPES, RESPONSE_TYPE_CATEGORIES } from "@/libs/consultation-types"
 import {
   Pagination,
   PaginationContent,
@@ -35,7 +35,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import type { QuestionSetTableItem, QuestionSet, QuestionFlowItem, ExpectedResponse } from "@/types"
-import { fetchFromApi } from "@/lib/api"
+import { fetchFromApi } from "@/libs/api"
 
 const initialQuestionSetData: QuestionSet = {
   id: "",

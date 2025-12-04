@@ -1,6 +1,8 @@
 package voicebot.management.call.service;
 
 import com.fasterxml.jackson.core.JsonParser;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +47,8 @@ public class CallServiceImpl implements CallService {
     private static final String WAITING_QUEUE_KEY = "queue:waiting";
     private static final String QUESTION_CACHE_PREFIX = "questions:";
     private static final long QUESTION_CACHE_TTL = 1; // hour
+
+    private static final String ACCOUNT_MAPPING_PREFIX = "consult:account:";
 
     @Value("${orchestrator.api.base-url}")
     private String orchestratorBaseUrl;
@@ -169,6 +173,15 @@ public class CallServiceImpl implements CallService {
             log.error("Vulnerable not found for ID: {}. Skipping consultation.", vulnerableId);
             return;
         }
+        String accountId = null;
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated()) {
+                accountId = auth.getName();  // 보통 userId / username
+            }
+        } catch (Exception e) {
+            log.warn("Failed to read accountId from SecurityContext", e);
+        }
 
         // QuestionSet 캐시에서 가져오기 (역직렬화 포함)
         Object rawQuestion = redisTemplate.opsForValue()
@@ -197,6 +210,14 @@ public class CallServiceImpl implements CallService {
         vulnerableSessionRepository.save(session);
         log.info("Vulnerable [{}], New Session Index: {}", vulnerableId, newSessionIndex);
 
+        if (accountId != null) {
+            String key = ACCOUNT_MAPPING_PREFIX + vulnerableId + ":" + newSessionIndex;
+            redisTemplate.opsForValue().set(key, accountId, 1, TimeUnit.DAYS);
+            log.info("Saved account mapping: {} -> {}", key, accountId);
+        } else {
+            log.info("No accountId resolved for this consultation (maybe anonymous/system).");
+        }
+
         // 상태 IN_PROGRESS
         item.setState("IN_PROGRESS");
         item.setStartTime(LocalDateTime.now());
@@ -210,6 +231,8 @@ public class CallServiceImpl implements CallService {
         ));
 
         log.info("Starting consultation for: {}", item);
+        Map<String, Object> body = createOrchestratorRequest(vulnerable, questionSet, newSessionIndex);
+        log.info("Sending to Orchestrator: {}", body);
 
         WebClient webClient = webClientBuilder.baseUrl(orchestratorBaseUrl).build();
         webClient.post()
@@ -220,18 +243,18 @@ public class CallServiceImpl implements CallService {
                 .doOnSuccess(response -> {
                     log.info("FastAPI response: {}", response);
 
-                    item.setState("COMPLETED");
+//                    item.setState("COMPLETED");
                     item.setEndTime(LocalDateTime.now());
-
-                    monitoringService.sendUpdate(
-                            new ConsultationStatusDto(
-                                    item.getVulnerableId(),
-                                    vulnerable.getName(),
-                                    questionSet.getTitle(),
-                                    "COMPLETED",
-                                    null
-                            )
-                    );
+//
+//                    monitoringService.sendUpdate(
+//                            new ConsultationStatusDto(
+//                                    item.getVulnerableId(),
+//                                    vulnerable.getName(),
+//                                    questionSet.getTitle(),
+//                                    "COMPLETED",
+//                                    null
+//                            )
+//                    );
                 })
                 .doOnError(error -> {
                     log.error("Consultation failed for {}: {}", vulnerableId, error.getMessage());
@@ -254,6 +277,17 @@ public class CallServiceImpl implements CallService {
         log.info("Handling LLM result for vulnerableId={}, sessionIndex={}, questionSetId={}",
                 dto.getVulnerableId(), dto.getSessionIndex(), dto.getQuestionSetId());
 
+        String resolvedAccountId = null;
+        if (dto.getVulnerableId() != null && dto.getSessionIndex() != null) {
+            String mapKey = ACCOUNT_MAPPING_PREFIX + dto.getVulnerableId() + ":" + dto.getSessionIndex();
+            Object rawAccount = redisTemplate.opsForValue().get(mapKey);
+            if (rawAccount != null) {
+                resolvedAccountId = rawAccount.toString();
+                // 1회용으로 쓰고 지우고 싶으면 주석 해제
+                // redisTemplate.delete(mapKey);
+            }
+            log.info("Resolved accountId from mapping [{}] = {}", mapKey, resolvedAccountId);
+        }
         // 취약계층 먼저 조회 (나중에 업데이트에도 사용)
         Vulnerable vulnerable = null;
         if (dto.getVulnerableId() != null) {
@@ -303,12 +337,22 @@ public class CallServiceImpl implements CallService {
             consultation.setDeleteVulnerabilities(dto.getDeleteVulnerabilities());
             consultation.setNewVulnerabilities(dto.getNewVulnerabilities());
 
-            consultation.setAccountId(dto.getAccountId());
+            String finalAccountId = dto.getAccountId() != null ? dto.getAccountId() : resolvedAccountId;
+            consultation.setAccountId(finalAccountId);
 
             // 1) 상담 내역 저장
             consultationRepository.save(consultation);
-            log.info("Saved consultation result. consultationId={}", consultation.getId());
-
+            log.info("Saved consultation result. consultationId={}, accountId={}",
+                    consultation.getId(), finalAccountId);
+            monitoringService.sendUpdate(
+                    new ConsultationStatusDto(
+                            dto.getVulnerableId(),
+                            vulnerable != null ? vulnerable.getName() : null,
+                            null,
+                            "COMPLETED",
+                            null
+                    )
+            );
             if (vulnerable != null && consultation.getResultVulnerabilities() != null) {
                 Consultation.VulnerabilityInfo rv = consultation.getResultVulnerabilities();
 
@@ -374,8 +418,11 @@ public class CallServiceImpl implements CallService {
                 riskListMap = vulnInfo.getRiskList().stream()
                         .map(r -> {
                             Map<String, Object> m = new HashMap<>();
-                            // FastAPI: risk_index_list
-                            m.put("risk_index_list", r.getRiskType());  // List<Integer>
+                            List<Integer> riskType =
+                                    Optional.ofNullable(r.getRiskType())
+                                            .orElse(Collections.emptyList());
+
+                            m.put("risk_index_list", riskType);
                             m.put("content", r.getContent());
                             return m;
                         })
@@ -386,13 +433,17 @@ public class CallServiceImpl implements CallService {
                 desireListMap = vulnInfo.getDesireList().stream()
                         .map(d -> {
                             Map<String, Object> m = new HashMap<>();
-                            // FastAPI: desire_type
-                            m.put("desire_type", d.getDesireType());  // List<Integer>
+                            List<Integer> desireType =
+                                    Optional.ofNullable(d.getDesireType())
+                                            .orElse(Collections.emptyList());
+
+                            m.put("desire_type", desireType);
                             m.put("content", d.getContent());
                             return m;
                         })
                         .toList();
             }
+
         }
 
         Map<String, Object> vulnerabilities = Map.of(
@@ -435,6 +486,7 @@ public class CallServiceImpl implements CallService {
         return Map.of(
                 "vulnerable_id", vulnerable.getUserId(), //취약문제 index
                 "s_index", sessionIndex,  // [추가] 회차 정보 전달
+                "q_id", questionSet.getId(),
                 "name", vulnerable.getName(),
                 "phone", vulnerable.getPhoneNumber(),
                 "gender", vulnerable.getGender(),

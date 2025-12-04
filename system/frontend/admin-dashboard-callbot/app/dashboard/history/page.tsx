@@ -18,7 +18,7 @@ import type { CallHistoryTableItem, CallLog } from "@/types"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { getRiskTypeLabel, getDesireTypeLabel } from "@/lib/consultation-types"
+import { getRiskTypeLabel, getDesireTypeLabel } from "@/libs/consultation-types"
 import {
   Pagination,
   PaginationContent,
@@ -27,7 +27,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { fetchFromApi } from "@/lib/api"
+import { fetchFromApi } from "@/libs/api"
 
 const ITEMS_PER_PAGE = 10
 
@@ -163,45 +163,66 @@ const openDetailModal = async (callId: string) => {
   };
 
   const renderVulnerabilities = (vulnData?: CallLog["result_vulnerabilities"]) => {
-    if (!vulnData) return <p className="text-sm text-muted-foreground">정보 없음</p>
-    return (
-      <div className="space-y-2 text-sm">
-        {vulnData.risk_list.length > 0 && (
-          <div>
-            <h5 className="font-semibold">위기 정보:</h5>
-            <ul className="list-disc list-inside pl-4">
-              {vulnData.risk_list.map((r, i) => (
-                <li key={`risk-${i}`}>
-                  {r.content} (유형:{" "}
-                  {r.risk_index_list.map((idx) => getRiskTypeLabel(idx) || `알수없음 ${idx}`).join(", ")})
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {vulnData.desire_list.length > 0 && (
-          <div>
-            <h5 className="font-semibold">욕구 정보:</h5>
-            <ul className="list-disc list-inside pl-4">
-              {vulnData.desire_list.map((d, i) => (
-                <li key={`desire-${i}`}>
-                  {d.content} (유형:{" "}
-                  {d.desire_index_list.map((idx) => getDesireTypeLabel(idx) || `알수없음 ${idx}`).join(", ")})
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {vulnData.risk_list.length === 0 && vulnData.desire_list.length === 0 && (
-          <p className="text-muted-foreground">감지된 정보 없음</p>
-        )}
-      </div>
-    )
+  if (!vulnData) {
+    return <p className="text-sm text-muted-foreground">정보 없음</p>
   }
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-  }
+  const riskList = Array.isArray(vulnData.risk_list) ? vulnData.risk_list : []
+  const desireList = Array.isArray(vulnData.desire_list) ? vulnData.desire_list : []
+
+  return (
+    <div className="space-y-2 text-sm">
+      {riskList.length > 0 && (
+        <div>
+          <h5 className="font-semibold">위기 정보:</h5>
+          <ul className="list-disc list-inside pl-4">
+            {riskList.map((r, i) => {
+              const indices = Array.isArray(r.risk_index_list)
+                ? r.risk_index_list
+                : []
+              return (
+                <li key={`risk-${i}`}>
+                  {r.content} (유형:{" "}
+                  {indices
+                    .map((idx) => getRiskTypeLabel(idx) || `알수없음 ${idx}`)
+                    .join(", ")}
+                  )
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
+      {desireList.length > 0 && (
+        <div>
+          <h5 className="font-semibold">욕구 정보:</h5>
+          <ul className="list-disc list-inside pl-4">
+            {desireList.map((d, i) => {
+              const indices = Array.isArray(d.desire_index_list)
+                ? d.desire_index_list
+                : []
+              return (
+                <li key={`desire-${i}`}>
+                  {d.content} (유형:{" "}
+                  {indices
+                    .map((idx) => getDesireTypeLabel(idx) || `알수없음 ${idx}`)
+                    .join(", ")}
+                  )
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
+      {riskList.length === 0 && desireList.length === 0 && (
+        <p className="text-muted-foreground">감지된 정보 없음</p>
+      )}
+    </div>
+  )
+}
+
   
   const resultOptions = ["상담 불가", "상담 양호", "심층 상담 필요"]
 
