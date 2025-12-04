@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { UserPlus, ArrowLeft, Phone } from "lucide-react"
-import { registerAccount } from "@/lib/api"
+import { registerAccount } from "@/libs/api"
 
 export default function RegisterPage() {
   const [userId, setUserId] = useState("")

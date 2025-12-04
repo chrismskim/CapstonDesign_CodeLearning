@@ -11,9 +11,12 @@ async def save_session(session_key: str, state: dict):
     await redis_client.set(f"session:{session_key}", json.dumps(state))
 
 async def get_session(session_key: str):
-    data = await redis_client.get(f"session:{session_key}")
+    key = f"session:{session_key}"
+    data = await redis_client.get(key)
+    print(f"[GET_SESSION] key={key}, raw_data={data}")
     if data:
         return json.loads(data)
+    print("[GET_SESSION] No existing session, returning default state")
     return {
         "current_idx": 0,
         "risk_list": [],

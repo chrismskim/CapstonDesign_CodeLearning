@@ -18,8 +18,8 @@ import {
   MessageSquareWarning,
 } from "lucide-react"
 import SimpleBarChart from "@/components/simple-bar-chart"
-import { getRiskTypeLabel, getDesireTypeLabel } from "@/lib/consultation-types"
-import { fetchFromApi } from "@/lib/api"
+import { getRiskTypeLabel, getDesireTypeLabel } from "@/libs/consultation-types"
+import { fetchFromApi } from "@/libs/api"
 
 const calculateStats = (logs: CallLog[]): Stats => {
   if (logs.length === 0) {

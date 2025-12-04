@@ -36,6 +36,7 @@ def build_output(state, result=2, fail_code=0, need_human=0):
         # [추가] 취약계층 ID 포함 (세션에 저장된 경우)
         "v_id": state.get("v_id"), 
         "s_index": state.get("s_index", 0), # [추가] 결과에 포함
+        "q_id": state.get("q_id"),
         "overall_script": "\n".join(script),
         "summary": summary,
         "result": result,
@@ -62,6 +63,7 @@ def build_output(state, result=2, fail_code=0, need_human=0):
             "desire_index_count": new_desire_index_count
         }
     }
+    print(f"[INFO build_output] Built output: {output}")
     return output
 
 async def send_result_to_spring(user_phone, output):

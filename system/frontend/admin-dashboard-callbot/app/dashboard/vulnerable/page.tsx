@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
-import { getRiskTypeLabel, getDesireTypeLabel } from "@/lib/consultation-types"
+import { getRiskTypeLabel, getDesireTypeLabel } from "@/libs/consultation-types"
 import {
   Pagination,
   PaginationContent,
@@ -46,7 +46,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { VulnerableTableItem, VulnerableIndividual } from "@/types" // Assuming types are defined
-import { fetchFromApi } from "@/lib/api"
+import { fetchFromApi } from "@/libs/api"
 
 const initialFormData: VulnerableIndividual = {
   user_id: "",
